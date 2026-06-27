@@ -1,0 +1,5 @@
+# Workspace-level ignores. Each subfolder (snow-resorts-*) is its own Git repo with
+# its own .gitignore — this file only covers stray OS/editor noise at the container level.
+.DS_Store
+.idea/
+.vscode/
