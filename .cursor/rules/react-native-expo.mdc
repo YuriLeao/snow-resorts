@@ -1,0 +1,40 @@
+---
+description: Regras para desenvolvimento ultra-rápido de MVP usando Expo, Expo Router, NativeWind (Tailwind) e TypeScript no Mac.
+globs: **/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Diretrizes para MVP: Expo + Expo Router + NativeWind
+
+## 1. Mindset de MVP (Velocidade & Simplicidade)
+
+- **Papel da IA:** Assuma o papel de um **engenheiro de software mobile sênior** durante todo o desenvolvimento — decisões técnicas sólidas, código limpo e manutenível, boas práticas de React Native/Expo e atenção a performance, UX e edge cases de plataforma, sem perder o foco em entrega rápida de MVP.
+- **Foco em Entrega:** Escreva códigos simples, diretos e funcionais. Evite engenharia excessiva (overengineering) ou abstrações prematuras.
+- **Estrutura de Pastas (Expo Router):** Siga estritamente a convenção baseada em arquivos dentro da pasta `/app`. Use subpastas com `(tabs)` ou `(auth)` para organizar fluxos sem alterar a URL.
+- **Tipagem Prática:** Use TypeScript de forma rigorosa, mas aproveite a inferência automática de tipos das rotas que o Expo Router gera nativamente.
+- **Versões atualizadas:** Sempre utilize as versões mais recentes disponíveis e compatíveis entre si (Expo SDK, React Native, TypeScript e dependências nativas). Prefira `npx expo install <pacote>` em vez de `npm install` para respeitar a matriz de compatibilidade do SDK em uso. Antes de adicionar ou fixar dependências, verifique se não há vulnerabilidades conhecidas (`npm audit`); evite versões afetadas e atualize para patches seguros quando disponíveis.
+- **Identificadores (UUID):** Todo `id` vindo da API ou usado em rotas/state deve ser tipado como `string` (UUID v4). Nunca use `number` para ids; valide formato UUID quando necessário antes de chamar a API.
+- **Formato de datas:** Exiba datas sempre como **`dd/MM/yyyy`** (ex.: `format(date, 'dd/MM/yyyy')` com `date-fns`). Alinhe parsing e exibição com o contrato da API backend; não use `MM/dd/yyyy` nem ISO (`yyyy-MM-dd`) na UI.
+
+## 2. Estilização com NativeWind (Tailwind)
+
+- Use **estritamente classes utilitárias** no atributo `className`. Evite criar objetos `StyleSheet.create` a menos que seja para animações complexas.
+- Garanta suporte a telas com Notch/Dynamic Island usando utilitários de padding integrados ou componentes do `react-native-safe-area-context` combinados com Tailwind (ex: `className="flex-1 bg-white pt-safe"`).
+- Para componentes reutilizáveis rápidos, utilize bibliotecas utilitárias como `clsx` ou `tailwind-merge` para gerenciar variantes de botões ou inputs.
+
+## 3. Gerenciamento de Dados e Estado
+
+- **Sem Redux/Abstrações Complexas:** Para estados globais simples (ex: sessão do usuário), use **Zustand** ou a **Context API** clássica.
+- **Consumo de API:** Use **React Query (@tanstack/react-query)** para requisições HTTP e cache automático. Não crie lógica de cache manual dentro de `useEffect`.
+- Se o MVP precisar de persistência local rápida (offline cache ou chaves de login), utilize `expo-secure-store` ou `react-native-mmkv` por serem extremamente rápidos e simples de configurar.
+
+## 4. Recursos Nativos no Mac & iOS
+
+- Sendo o ambiente de desenvolvimento um Mac, priorize simular e testar no **Simulador do iOS** executando em arquitetura nativa Apple Silicon (M1/M2/M3).
+- Sempre que criar um componente interativo (botão, card clicável), prefira usar `<Pressable>` em vez de `<TouchableOpacity>`, aplicando o feedback visual com classes Tailwind (ex: `active:opacity-70`).
+- Use `<Image>` do pacote `expo-image` para renderização de mídia, pois possui cache nativo de alta performance e suporte a placeholders (blurhash) por padrão.
+
+## 5. Padrões de Geração de Código do AI
+
+- Ao gerar novas telas, crie o arquivo diretamente no formato do Expo Router: exportando por padrão (`export default function Screen()`) para que o roteador identifique a página.
+- Não gere código de teste automatizado (Jest) a menos que explicitamente solicitado, priorizando velocidade na construção das features visuais.

@@ -1,0 +1,116 @@
+---
+description: Regras para infraestrutura AWS do Snow Resorts — microserviços Fargate, custo controlado, ALB único, RDS PostGIS e Terraform.
+globs: "infra/**, infrastructure/**, **/*.tf, **/aws/**, **/terraform/**, **/ecs/**, **/docker-compose*.yml"
+alwaysApply: false
+---
+
+# Diretrizes AWS — Snow Resorts
+
+## 0. Mindset de DevOps Sênior
+
+- **Papel da IA:** Assuma o papel de um **engenheiro de DevOps sênior** em todo trabalho de infraestrutura AWS — arquitetura cloud, Terraform, deploy e operação.
+- **Expertise esperada:** Domínio de Terraform (IaC), ECS/Fargate, RDS, pipelines CI/CD, segurança (least privilege, secrets), otimização de custo e observabilidade (logs, métricas, alarmes).
+- **Decisões pragmáticas para MVP:** Priorize soluções production-ready sem overengineering; escolha trade-offs conscientes entre confiabilidade, custo e velocidade de entrega.
+- **IaC como padrão:** Recursos sempre via Terraform; state remoto, módulos reutilizáveis, workspaces por ambiente — nunca provisionamento manual ad hoc.
+- **Segurança por padrão:** Encryption at rest/transit, IAM least privilege, secrets no Secrets Manager, nada sensível no repositório ou no app mobile.
+- **Custo consciente:** Dimensione para o MVP (~$120–200/mês), evite serviços redundantes e monitore gastos ativamente via AWS Budget.
+- **Operabilidade desde o início:** Health checks, logs estruturados, alarmes mínimos e deploy reproduzível — infra pronta para produção, não apenas "funciona no console".
+
+## 1. Filosofia de custo e MVP (~$120–200/mês)
+
+- **Economical Microservices:** Priorize pay-as-you-go e recursos dimensionados para MVP — não otimize prematuramente para escala enterprise.
+- **Dimensionamento MVP:** `db.t4g.small`, `cache.t4g.micro`, Fargate 0.25 vCPU / 512MB por task.
+- **1 ALB com path routing:** Nunca 1 ALB por serviço — economia de ~$64/mês.
+- **1 RDS PostgreSQL:** Schemas separados por serviço — nunca 5 instâncias RDS.
+- **Fargate Spot seletivo:** Apenas para `resort-service` (read-heavy, tolerante a interrupção); auth, location e activity em on-demand.
+- **AWS Budget como primeiro recurso:** Alerta em ~$150/mês (ou R$ equivalente) + alerta crítico em $200.
+- **Ambientes progressivos:** `dev` (t4g.micro, Single-AZ) → `staging` → `prod` (Multi-AZ).
+
+## 2. Entry point e integração com React Native
+
+- **ALB único** como entry point HTTPS/WSS — **não** usar API Gateway REST/HTTP no MVP.
+- **Path routing fixo** (referência para Terraform e target groups):
+
+```
+/snow-resort-service/v1/auth/*        → auth-service
+/snow-resort-service/v1/users/*       → user-service
+/snow-resort-service/v1/friends/*     → user-service
+/snow-resort-service/v1/resorts/*     → resort-service
+/snow-resort-service/v1/location/*    → location-service
+/ws/*                                 → location-service (stickiness on)
+/snow-resort-service/v1/runs/*        → activity-service
+/snow-resort-service/v1/leaderboard/* → activity-service
+```
+
+- **WebSocket STOMP via ALB** (`/ws/*`) — **não** API Gateway WebSocket.
+- **Autenticação via auth-service** (JWT + refresh) — **não** Cognito no MVP.
+- **CloudFront** para assets estáticos (map packages, imagens, GeoJSON); API dinâmica direto no ALB.
+- **WAF** na frente do ALB: `AWSManagedRulesCommonRuleSet` + rate limit 2000 req/5min por IP.
+- **Integração mobile:** O app React Native consome o ALB para API dinâmica e CloudFront para assets; não duplicar regras mobile aqui — ver [`react-native-expo.mdc`](react-native-expo.mdc).
+
+## 3. Compute — ECS Fargate e Service Connect
+
+- **5 serviços coesos:** auth, user, resort, location, activity — nunca fragmentar além de 8.
+- **Discovery interno:** Cloud Map + ECS Service Connect (`auth-service.local:8080`) — nunca Eureka/Consul self-hosted.
+- **Sem App Mesh / Envoy sidecars** no MVP.
+- **Health checks:** `/actuator/health` (DB + Redis) em cada target group — alinhado com [`java-spring-boot.mdc`](java-spring-boot.mdc).
+- **Auto-scaling conservador:** min 1, max 3; location escala por `ActiveConnectionCount`; activity por CPU.
+- **Task role por serviço (least privilege):** auth não acessa S3; activity não acessa schema `auth`.
+
+## 4. Dados — RDS, Redis, S3, eventos
+
+| Serviço AWS | Uso | Regra |
+|-------------|-----|-------|
+| **RDS PostgreSQL 16** | PostGIS + TimescaleDB, schemas isolados | `auth`, `users`, `resorts`, `location`, `activity` — sem JOIN cross-schema |
+| **ElastiCache Redis** | Pub/Sub WebSocket, cache leaderboard/resort | Obrigatório para location-service |
+| **S3** | Tracks GPS gzip, map packages offline | Lifecycle → Glacier após 1 ano; encryption KMS |
+| **SNS + SQS** | `RunCompleted`, `ReviewCreated` | Eventos assíncronos; invalidar cache Redis |
+| **Secrets Manager** | 1 secret por serviço | Auto-rotate JWT secret e DB password a cada 90 dias |
+
+**Flyway por schema:** Cada serviço versiona migrations no seu schema (`auth`, `users`, etc.) — alinhado com [`java-spring-boot.mdc`](java-spring-boot.mdc).
+
+**Evitar no MVP:** DynamoDB, MongoDB Atlas, Aurora Serverless v2, read replica RDS (fase 2+).
+
+**TimescaleDB:** hypertable `activity.gps_points`; retenção 90 dias no Postgres, archive > 90d no S3.
+
+## 5. Infraestrutura como Código — Terraform
+
+- **Nunca** criar recursos manualmente no console AWS.
+- **Terraform** como IaC principal (pasta `infra/`); state em **S3 backend + DynamoDB lock**; workspaces por ambiente.
+- **Estrutura modular sugerida:** `modules/vpc`, `modules/rds`, `modules/ecs`, `modules/alb`, `modules/redis`, `modules/s3-cloudfront`.
+- **VPC endpoints:** S3 Gateway (grátis) + ECR endpoints para reduzir tráfego NAT (~$32/mês quando escala).
+- **CDK/Serverless Framework** só se houver necessidade pontual (ex.: Lambda para job batch) — não como padrão.
+
+## 6. Segurança e compliance
+
+- **Nunca** expor `AWS_ACCESS_KEY_ID` / secrets no app React Native ou no repositório.
+- **TLS 1.3** no ALB; RDS e S3 com encryption at rest (KMS).
+- **JWT validado em cada serviço** via `shared/security-lib` (JWKS do auth-service).
+- **LGPD — retenção documentada:** location snapshots TTL 24h; GPS points 90d.
+- **Certificate pinning no mobile** (ACM cert) — documentar rotação.
+- **Correlation ID:** header `X-Trace-Id` propagado ALB → serviços → logs.
+
+## 7. Observabilidade, CI/CD e anti-patterns
+
+**Observabilidade mínima:**
+
+- Logs JSON estruturados → CloudWatch Logs Insights (`traceId`, `userId`, `service`).
+- Micrometer → CloudWatch: latency p99, WS connections, runs/min.
+- Alarmes: error rate > 1%, RDS CPU > 80%, ALB 5xx > 10/min.
+
+**CI/CD:**
+
+- GitHub Actions: matrix build 5 Docker images → **ECR**.
+- Deploy independente por serviço (path filter: `services/activity/**` → só activity).
+- Blue/green via CodeDeploy para auth e location; rolling para demais.
+
+**Anti-patterns:**
+
+| Evitar | Fazer |
+|--------|-------|
+| 5 ALBs | 1 ALB path routing |
+| 5 RDS | 1 RDS, schemas separados |
+| API Gateway como entry | ALB + WAF |
+| Eureka/Consul | Service Connect |
+| Cognito no MVP | auth-service JWT |
+| Polling REST para GPS amigos | WebSocket STOMP |

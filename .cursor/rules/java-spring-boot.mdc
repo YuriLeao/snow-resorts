@@ -1,0 +1,158 @@
+---
+description: Regras para gerar código Java e Spring Boot limpo, moderno e pronto para produção.
+globs: **/*.{java,xml,yml,yaml,properties}
+alwaysApply: false
+---
+
+# Java & Spring Boot Development Rules
+
+## 0. Senior Software Engineer Mindset
+
+- **Atue como engenheiro de software sênior:** Assuma ownership completo do que entrega — arquitetura, implementação, testes, segurança e manutenibilidade. Não escreva código de júnior que "só funciona"; escreva código pronto para produção.
+- **Decisões conscientes:** Avalie trade-offs (simplicidade vs. extensibilidade, performance vs. legibilidade) e escolha a opção mais adequada ao contexto do MVP/projeto, refletindo a escolha em código limpo e bem estruturado.
+- **Antecipe problemas:** Considere edge cases, concorrência, falhas de rede, validação de entrada, segurança (OWASP) e impacto em outros serviços antes de implementar.
+- **Respeite o ecossistema existente:** Leia o código e convenções do projeto antes de propor mudanças; estenda padrões existentes em vez de reinventar abstrações.
+- **Qualidade sobre velocidade superficial:** Prefira a solução correta e testada à solução rápida que acumula dívida técnica — mas evite overengineering desnecessário.
+- **Comunicação técnica clara:** Quando relevante, justifique decisões não óbvias de forma direta e objetiva.
+
+## 1. Code Style and Structure
+
+- **Naming conventions:** Classes e interfaces em `PascalCase`; métodos, variáveis e parâmetros em `camelCase`; constantes em `ALL_CAPS`.
+- **Nomenclatura de microserviços (`-service`):** Todo microserviço deve ter o sufixo `-service` no padrão de mercado — aplicado de forma consistente ao nome do repositório (`snow-resorts-auth-service`), ao `artifactId`/`finalName` Maven (`auth-service`), à imagem/serviço ECS e à classe principal (`AuthServiceApplication`). Bibliotecas compartilhadas e infraestrutura **não** usam esse sufixo (`security-lib`, `contracts`, `snow-resorts-infra`).
+- **Organização em camadas:** Separe responsabilidades em `controller`, `service`, `repository`, `entity` e `dto` — cada camada com escopo claro.
+- **Controllers finos:** Delegue lógica de negócio aos services; controllers apenas recebem requisições, validam entrada e retornam respostas HTTP.
+- **DTOs na borda da API:** Nunca exponha entidades JPA diretamente nos endpoints; use DTOs de request/response.
+- **Imutabilidade quando possível:** Prefira `final` em campos e parâmetros que não mudam após inicialização.
+- **Métodos curtos e focados:** Uma responsabilidade por método; extraia lógica complexa para métodos privados ou classes dedicadas.
+- **Identificadores (UUID):** Todo `id` de entidade, DTO, path parameter e foreign key deve ser `java.util.UUID`. Nunca use `Long`, `Integer` ou `String` genérica como PK. Em JPA: `@Id @GeneratedValue(strategy = GenerationType.UUID) private UUID id;`. Em controllers: `@PathVariable UUID id`.
+- **Formato de datas:** Datas em APIs, DTOs e respostas JSON devem usar o formato **`dd/MM/yyyy`**. Serialize `LocalDate` com `@JsonFormat(pattern = "dd/MM/yyyy")`; valide entradas de data no mesmo padrão com `@DateTimeFormat(pattern = "dd/MM/yyyy")` ou `@Pattern(regexp = "\\d{2}/\\d{2}/\\d{4}")`.
+
+## 2. Java 17/21+ Modern Features
+
+- **Records:** Use `record` para DTOs imutáveis e value objects simples.
+- **Streams:** Prefira `Stream` API para transformações e filtros em coleções; evite loops imperativos quando a intenção for declarativa.
+- **Optional:** Retorne `Optional<T>` de repositórios e services quando o valor pode estar ausente; nunca use `Optional` como parâmetro de método.
+- **Try-with-resources:** Use para qualquer recurso que implemente `AutoCloseable` (streams, conexões, readers).
+- **Text blocks:** Use `"""` para strings multilinha (SQL, JSON templates, mensagens longas).
+- **Pattern matching e `var`:** Use com moderação onde melhoram legibilidade sem obscurecer tipos.
+
+## 3. Spring Boot Best Practices
+
+- **Constructor injection:** Injete dependências via construtor (com `@RequiredArgsConstructor` do Lombok ou construtor explícito); evite `@Autowired` em campos.
+- **DTOs na API:** Separe modelos de domínio/persistência dos contratos HTTP com DTOs dedicados.
+- **`@ConfigurationProperties`:** Externalize configuração tipada em classes `@ConfigurationProperties` em vez de `@Value` espalhado.
+- **Profiles:** Use `@Profile` ou `spring.profiles.active` para separar configurações de dev, test e prod.
+- **Evite lógica no `@SpringBootApplication`:** Mantenha a classe principal mínima; configure beans em classes `@Configuration` dedicadas.
+- **Autenticação JWT obrigatória:** Todos os endpoints de negócio exigem `Authorization: Bearer <token>`. Rotas públicas permitidas **somente**: OpenAPI/Swagger, login, refresh de token, recuperação de senha (`forgot-password`/`reset-password`), JWKS (`/.well-known/jwks.json`) e health/info do actuator. Nunca marque catálogos ou leituras (`GET`) como `permitAll()` por conveniência.
+
+## 4. API Input Validation
+
+- **Valide toda entrada na borda da API:** Aplique anotações Jakarta Validation (`@NotBlank`, `@NotNull`, `@Email`, `@Size`, `@Min`, `@Max`, `@Pattern`, etc.) nos campos dos DTOs de request.
+- **Ative a validação nos controllers:** Use `@Valid` (ou `@Validated`) em `@RequestBody`, `@RequestParam` e `@PathVariable` quando aplicável.
+- **Mensagens de erro claras e específicas:** Defina mensagens customizadas nas anotações (ex.: `@NotBlank(message = "name is required")`) — nunca retorne mensagens genéricas como "invalid input" sem indicar o campo.
+- **Validação em camadas:** Validação de formato/regras de entrada nos DTOs; regras de negócio (ex.: recurso inexistente, conflito de estado) nos services, lançando exceções de domínio tratadas pelo handler global.
+- **Teste validações antes da implementação:** Escreva testes de controller/service que enviem valores inválidos e assertem status HTTP e payload de erro corretos.
+
+## 5. Database & Persistence
+
+- **Fetch strategies explícitas:** Defina `FetchType.LAZY` por padrão; use `EAGER` apenas quando justificado e documentado.
+- **Migrations versionadas:** Use Liquibase ou Flyway para evolução de schema; nunca use `spring.jpa.hibernate.ddl-auto=update` em produção.
+- **Transações nos services:** Anote métodos de escrita com `@Transactional`; mantenha transações curtas e no nível de service.
+- **Evite N+1:** Use `@EntityGraph`, `JOIN FETCH` ou projeções DTO quando necessário.
+- **Índices e constraints:** Defina no banco via migrations, não apenas nas anotações JPA.
+- **Primary keys UUID:** Colunas `id` e FKs referenciando entidades devem ser do tipo `UUID` no PostgreSQL (`uuid`); gere valores com `GenerationType.UUID` ou `gen_random_uuid()` nas migrations Flyway/Liquibase.
+
+## 6. Exception Handling & Error Responses
+
+- Implemente um handler global com `@RestControllerAdvice` para centralizar todas as respostas de erro.
+- Use **RFC 7807 Problem Details** como formato padrão (`Content-Type: application/problem+json`).
+- Utilize `ProblemDetail` do Spring Framework para construir respostas type-safe.
+- Retorne o **HTTP status code correto** para cada tipo de erro:
+  - `400 Bad Request` — validação de entrada ou corpo malformado
+  - `404 Not Found` — recurso não encontrado
+  - `409 Conflict` — conflito de estado/regra de negócio
+  - `422 Unprocessable Entity` — semanticamente inválido (quando aplicável)
+  - `500 Internal Server Error` — erros não tratados (sem expor stack trace ao cliente)
+- Para erros de validação (`MethodArgumentNotValidException`, `ConstraintViolationException`), inclua lista de erros por campo como propriedade estendida `errors`.
+- Use **SLF4J** com `@Slf4j`; logging parametrizado; nunca `System.out.println()`.
+
+**Exemplo de JSON de erro de validação (padrão esperado):**
+
+```json
+{
+  "type": "about:blank",
+  "title": "Validation Failed",
+  "status": 400,
+  "detail": "One or more fields contain invalid values.",
+  "instance": "/snow-resort-service/v1/resorts",
+  "errors": [
+    {
+      "field": "name",
+      "message": "name is required",
+      "rejectedValue": null
+    },
+    {
+      "field": "email",
+      "message": "must be a well-formed email address",
+      "rejectedValue": "invalid-email"
+    }
+  ]
+}
+```
+
+**Exemplo de JSON de erro de negócio:**
+
+```json
+{
+  "type": "about:blank",
+  "title": "Resource Not Found",
+  "status": 404,
+  "detail": "Resort with id '550e8400-e29b-41d4-a716-446655440000' was not found.",
+  "instance": "/snow-resort-service/v1/resorts/550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Referência de implementação sugerida:**
+
+```java
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ProblemDetail handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+            HttpStatus.BAD_REQUEST, "One or more fields contain invalid values.");
+        problem.setTitle("Validation Failed");
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("errors", extractFieldErrors(ex));
+        return problem;
+    }
+}
+```
+
+## 7. Test-Driven Development (TDD)
+
+- **Sempre comece pelos testes:** Antes de implementar lógica de negócio, escreva testes que descrevam o comportamento esperado (ciclo Red → Green → Refactor).
+- **Testes definem o contrato, não validam o código existente:** Nunca escreva a implementação primeiro e depois crie testes que apenas espelhem o que o código já faz — isso produz testes tendenciosos que passam sem garantir comportamento correto.
+- **Cubra cenários reais e edge cases:** Inclua casos de sucesso, falha, entradas inválidas e limites antes de codificar a solução.
+- **Teste comportamento, não detalhes de implementação:** Asserts devem verificar resultados e efeitos observáveis (retorno, exceções, interações com dependências), não métodos privados ou estrutura interna.
+- **Mocks com intenção:** Use mocks apenas para isolar dependências externas; não mocke a unidade sob teste.
+
+## 8. Testing Conventions
+
+- **JUnit 5:** Use `@Test`, `@BeforeEach`, `@DisplayName` e assertions de `org.junit.jupiter.api.Assertions`.
+- **Mockito:** Use `@ExtendWith(MockitoExtension.class)`, `@Mock` e `@InjectMocks` para testes unitários de services.
+- **Naming convention:** `methodUnderTest_scenario_expectedResult()` — ex.: `createResort_withBlankName_returnsBadRequest()`.
+- **Padrão AAA:** Organize cada teste em **Arrange** (setup), **Act** (execução) e **Assert** (verificação), separados visualmente.
+- **`@ParameterizedTest`:** Use para cobrir múltiplas entradas inválidas ou variações de um mesmo cenário sem duplicar código.
+- **Testes de integração:** Use `@SpringBootTest` + `@AutoConfigureMockMvc` para testar controllers com contexto Spring completo.
+- **Testes de repositório:** Use `@DataJpaTest` com banco em memória (H2) para validar queries e mapeamentos.
+
+## 9. Dependency Management & Security
+
+- **Versões recentes e compatíveis:** Prefira as versões gerenciadas pelo Spring Boot BOM (`spring-boot-dependencies`) e pelo parent POM do projeto. Alinhe Java, Spring Boot e bibliotecas ao mesmo release train — não misture versões de ecossistemas incompatíveis.
+- **Sem CVEs conhecidas:** Antes de adicionar ou atualizar uma dependência, verifique se a versão escolhida **não possui vulnerabilidades conhecidas** (CVE). Nunca introduza nem mantenha dependências com severidade alta/crítica sem mitigação documentada.
+- **Ferramentas de verificação:** Use `./mvnw dependency:tree` para inspecionar transitivas; valide com OWASP Dependency-Check, GitHub Dependabot, Snyk ou o scanner de segurança do CI antes de merge.
+- **Atualização responsável:** Ao corrigir CVE, prefira bump de patch/minor dentro do BOM; overrides manuais em `<dependencyManagement>` só quando o BOM ainda não publicou fix — documente o motivo no PR.
+- **Evite dependências abandonadas:** Não adicione libs sem manutenção recente; prefira alternativas mantidas pelo ecossistema Spring/Java.
+- **Nunca ignore falhas de segurança no CI:** Builds com CVE crítica/alta devem falhar ou exigir exceção explícita e temporária com ticket de remediação.
