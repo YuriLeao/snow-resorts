@@ -239,6 +239,51 @@ Se aparecer timeout no `openurl` no final, ignore — o app já foi instalado; a
 npm run ios:sim
 ```
 
+### GPS simulado — descida no Valle Nevado (opcional)
+
+Para testar **mapa + descida** sem GPS real no simulador, use o mock local de Valle Nevado (estacionamento → Gondola Bajo Cero → topo Sol 2 → descida completa). O código do simulador **não vai pro git** — fica só na sua máquina.
+
+**Como funciona**
+
+| O quê | Onde | Git |
+|-------|------|-----|
+| Template (cópia de referência) | `snow-resorts-mobile/dev-local.mock-gps.example/` | commitado |
+| Sua instalação ativa | `snow-resorts-mobile/dev-local/mock-gps/` | **ignorado** (`.gitignore`) |
+| App sem mock instalado | usa `src/dev/mockGps.stub.ts` (GPS real / simulador iOS) | commitado |
+
+O Metro resolve o módulo `@local/mock-gps` para a pasta `dev-local/mock-gps/` quando ela existe; senão, usa o stub vazio.
+
+**Instalar e subir**
+
+```bash
+cd snow-resorts-mobile
+npm run mock-gps:install    # copia dev-local.mock-gps.example → dev-local/mock-gps/
+npm run start:mock-gps      # instala se faltar + EXPO_PUBLIC_MOCK_LOCATION=true + Metro
+```
+
+Em outro terminal, abra o simulador como de costume (`npm run ios:sim`).
+
+**No app**
+
+- Badge no mapa: `GPS simulado · Valle Nevado · [fase]` (ex.: *Pista Sol 2*)
+- Ponto azul se move pela rota (~10 min, depois reinicia no estacionamento)
+- **Reiniciar rota** — volta ao estacionamento
+- **Iniciar descida** — grava velocidade, altitude e distância como GPS real
+- Valle Nevado é selecionado automaticamente
+
+**Variáveis (opcionais)**
+
+| Variável | Efeito |
+|----------|--------|
+| `EXPO_PUBLIC_MOCK_LOCATION=true` | Liga o mock (obrigatório; `start:mock-gps` já define) |
+| `EXPO_PUBLIC_MOCK_GPS_ROUTE=false` | GPS fixo no meio da Sol 2, sem rota animada |
+
+**Remover o mock depois**
+
+1. Apague `snow-resorts-mobile/dev-local/mock-gps/`
+2. No `.gitignore` do mobile, remova o bloco `[LOCAL DEV] GPS mock`
+3. (Opcional) apague `dev-local.mock-gps.example/` e `src/dev/mockGps.*`
+
 ---
 
 ## Login de teste
@@ -317,9 +362,9 @@ Metro não está rodando ou o dev client não conectou. Suba `npm start` e toque
 
 Confirme `RNMAPBOX_MAPS_DOWNLOAD_TOKEN` no `.env` antes de `npx expo prebuild`.
 
-### `geometry does not exist` (resort-service)
+### `geography` / `geometry does not exist` (resort-service)
 
-PostGIS não carregou. Reset da infra:
+PostGIS está instalado, mas o `currentSchema=resorts` na JDBC deixa o `search_path` só em `resorts`, sem `public` (onde ficam os tipos/funções PostGIS). Reinicie o resort-service após atualizar o código. Se persistir, reset da infra:
 
 ```bash
 cd snow-resorts-infra
@@ -346,4 +391,5 @@ xcodebuild -downloadPlatform iOS
 - [ ] `make seed` (se necessário)
 - [ ] `cd snow-resorts-mobile && npm start` (terminal 1)
 - [ ] `npm run ios:sim` ou `npm run ios` (terminal 2)
+- [ ] (Opcional) GPS simulado: `npm run mock-gps:install` + `npm run start:mock-gps`
 - [ ] Login: `demo@snow-resorts.com` / `Password123!`
