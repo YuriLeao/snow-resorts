@@ -289,10 +289,9 @@ npm run ios:sim
 **Variáveis (opcionais)**
 
 
-| Variável                           | Efeito                                                |
-| ---------------------------------- | ----------------------------------------------------- |
-| `EXPO_PUBLIC_MOCK_LOCATION=true`   | Liga o mock (obrigatório; `start:mock-gps` já define) |
-| `EXPO_PUBLIC_MOCK_GPS_ROUTE=false` | GPS fixo no meio da Sol 2, sem rota animada           |
+| Variável | Efeito |
+|----------|--------|
+| `EXPO_PUBLIC_MOCK_LOCATION=true` | Liga o simulador (`start:mock-gps` já define; exige `dev-local/mock-gps/` instalado) |
 
 
 **Remover o mock depois**
