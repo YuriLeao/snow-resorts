@@ -23,15 +23,17 @@ Simulador iOS / dispositivo
             Docker: Postgres+PostGIS, Redis, MinIO, Mailpit
 ```
 
-| Porta | Serviço |
-|-------|---------|
+
+| Porta            | Serviço                             |
+| ---------------- | ----------------------------------- |
 | `5432` ou `5433` | Postgres (Docker) — ver nota abaixo |
-| `6379` | Redis |
-| `9000` / `9001` | MinIO (S3 local) / console |
-| `1025` / `8025` | Mailpit (SMTP / UI) |
-| `8080` | Gateway nginx + Swagger |
-| `8081`–`8085` | Microserviços Java |
-| `8086` | Metro bundler (app mobile) |
+| `6379`           | Redis                               |
+| `9000` / `9001`  | MinIO (S3 local) / console          |
+| `1025` / `8025`  | Mailpit (SMTP / UI)                 |
+| `8080`           | Gateway nginx + Swagger             |
+| `8081`–`8085`    | Microserviços Java                  |
+| `8086`           | Metro bundler (app mobile)          |
+
 
 ---
 
@@ -39,14 +41,16 @@ Simulador iOS / dispositivo
 
 Instale e deixe rodando:
 
-| Ferramenta | Versão / nota |
-|------------|----------------|
-| **Docker Desktop** | Em execução |
-| **Java 25** | `JAVA_HOME` configurado (`/usr/libexec/java_home -v 25`) |
-| **Node.js 26** | Ex.: `~/.local/node26` no `PATH` |
-| **Xcode** | Com runtime do **simulador iOS** (Xcode → Settings → Platforms) |
-| **CocoaPods** | `pod --version` |
-| **GitHub PAT** | Para resolver libs no Maven (ver abaixo) |
+
+| Ferramenta         | Versão / nota                                                   |
+| ------------------ | --------------------------------------------------------------- |
+| **Docker Desktop** | Em execução                                                     |
+| **Java 25**        | `JAVA_HOME` configurado (`/usr/libexec/java_home -v 25`)        |
+| **Node.js 26**     | Ex.: `~/.local/node26` no `PATH`                                |
+| **Xcode**          | Com runtime do **simulador iOS** (Xcode → Settings → Platforms) |
+| **CocoaPods**      | `pod --version`                                                 |
+| **GitHub PAT**     | Para resolver libs no Maven (ver abaixo)                        |
+
 
 O app mobile **não roda no Expo Go** — usa Mapbox, MMKV e New Architecture. É necessário **dev client** (`expo-dev-client`).
 
@@ -93,7 +97,7 @@ cd snow-resorts-mobile
 npm install
 ```
 
-Crie **`snow-resorts-mobile/.env`** (não versionado):
+Crie `**snow-resorts-mobile/.env**` (não versionado):
 
 ```env
 # Token secreto Mapbox (escopo Downloads:Read) — build nativo (pod install).
@@ -103,7 +107,7 @@ RNMAPBOX_MAPS_DOWNLOAD_TOKEN=sk.seu_token_aqui
 EXPO_PUBLIC_MAPBOX_TOKEN=pk.seu_token_aqui
 ```
 
-Crie **`snow-resorts-mobile/.env.local`** (não versionado):
+Crie `**snow-resorts-mobile/.env.local**` (não versionado):
 
 ```env
 # Simulador iOS: deep link usa localhost (evita timeout com IP da LAN).
@@ -189,7 +193,7 @@ cd snow-resorts-activity-service
 ./mvnw spring-boot:run
 ```
 
-Cada serviço usa o profile **`local`** e conecta no Postgres do Docker.
+Cada serviço usa o profile `**local**` e conecta no Postgres do Docker.
 
 Se `POSTGRES_PORT=5433`, exporte **antes** de iniciar os serviços no mesmo terminal.
 
@@ -245,23 +249,34 @@ Para testar **mapa + descida** sem GPS real no simulador, use o mock local de Va
 
 **Como funciona**
 
-| O quê | Onde | Git |
-|-------|------|-----|
-| Template (cópia de referência) | `snow-resorts-mobile/dev-local.mock-gps.example/` | commitado |
-| Sua instalação ativa | `snow-resorts-mobile/dev-local/mock-gps/` | **ignorado** (`.gitignore`) |
-| App sem mock instalado | usa `src/dev/mockGps.stub.ts` (GPS real / simulador iOS) | commitado |
+
+| O quê                          | Onde                                                     | Git                         |
+| ------------------------------ | -------------------------------------------------------- | --------------------------- |
+| Template (cópia de referência) | `snow-resorts-mobile/dev-local.mock-gps.example/`        | commitado                   |
+| Sua instalação ativa           | `snow-resorts-mobile/dev-local/mock-gps/`                | **ignorado** (`.gitignore`) |
+| App sem mock instalado         | usa `src/dev/mockGps.stub.ts` (GPS real / simulador iOS) | commitado                   |
+
 
 O Metro resolve o módulo `@local/mock-gps` para a pasta `dev-local/mock-gps/` quando ela existe; senão, usa o stub vazio.
 
-**Instalar e subir**
+> **Atenção:** os comandos abaixo são só para copiar do bloco de código — **não** cole símbolos da saída do terminal (`√`, `›`, etc.). Se aparecer `command not found: √`, foi isso.
+>
+> Rode sempre dentro de `snow-resorts-mobile/` (não na pasta raiz `snow-resorts/`).
+
+**Terminal 1 — instalar mock (uma vez) e Metro**
 
 ```bash
 cd snow-resorts-mobile
-npm run mock-gps:install    # copia dev-local.mock-gps.example → dev-local/mock-gps/
-npm run start:mock-gps      # instala se faltar + EXPO_PUBLIC_MOCK_LOCATION=true + Metro
+npm run mock-gps:install
+npm run start:mock-gps
 ```
 
-Em outro terminal, abra o simulador como de costume (`npm run ios:sim`).
+**Terminal 2 — simulador iOS**
+
+```bash
+cd snow-resorts-mobile
+npm run ios:sim
+```
 
 **No app**
 
@@ -273,10 +288,12 @@ Em outro terminal, abra o simulador como de costume (`npm run ios:sim`).
 
 **Variáveis (opcionais)**
 
-| Variável | Efeito |
-|----------|--------|
-| `EXPO_PUBLIC_MOCK_LOCATION=true` | Liga o mock (obrigatório; `start:mock-gps` já define) |
-| `EXPO_PUBLIC_MOCK_GPS_ROUTE=false` | GPS fixo no meio da Sol 2, sem rota animada |
+
+| Variável                           | Efeito                                                |
+| ---------------------------------- | ----------------------------------------------------- |
+| `EXPO_PUBLIC_MOCK_LOCATION=true`   | Liga o mock (obrigatório; `start:mock-gps` já define) |
+| `EXPO_PUBLIC_MOCK_GPS_ROUTE=false` | GPS fixo no meio da Sol 2, sem rota animada           |
+
 
 **Remover o mock depois**
 
@@ -288,23 +305,27 @@ Em outro terminal, abra o simulador como de costume (`npm run ios:sim`).
 
 ## Login de teste
 
-| Campo | Valor |
-|-------|--------|
+
+| Campo | Valor                   |
+| ----- | ----------------------- |
 | Email | `demo@snow-resorts.com` |
-| Senha | `Password123!` |
+| Senha | `Password123!`          |
+
 
 ---
 
 ## URLs úteis
 
-| URL | Descrição |
-|-----|-----------|
-| http://localhost:8080/snow-resort-service/v1 | API (usada pelo app) |
-| ws://localhost:8080/ws | WebSocket (localização em tempo real) |
-| http://localhost:8080/swagger/ | Swagger unificado (5 serviços) |
-| http://localhost:9001 | MinIO console (`minioadmin` / `minioadmin`) |
-| http://localhost:8025 | Mailpit (e-mails de dev) |
-| http://localhost:8086 | Metro bundler |
+
+| URL                                                                                          | Descrição                                   |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| [http://localhost:8080/snow-resort-service/v1](http://localhost:8080/snow-resort-service/v1) | API (usada pelo app)                        |
+| ws://localhost:8080/ws                                                                       | WebSocket (localização em tempo real)       |
+| [http://localhost:8080/swagger/](http://localhost:8080/swagger/)                             | Swagger unificado (5 serviços)              |
+| [http://localhost:9001](http://localhost:9001)                                               | MinIO console (`minioadmin` / `minioadmin`) |
+| [http://localhost:8025](http://localhost:8025)                                               | Mailpit (e-mails de dev)                    |
+| [http://localhost:8086](http://localhost:8086)                                               | Metro bundler                               |
+
 
 ---
 
@@ -391,5 +412,6 @@ xcodebuild -downloadPlatform iOS
 - [ ] `make seed` (se necessário)
 - [ ] `cd snow-resorts-mobile && npm start` (terminal 1)
 - [ ] `npm run ios:sim` ou `npm run ios` (terminal 2)
-- [ ] (Opcional) GPS simulado: `npm run mock-gps:install` + `npm run start:mock-gps`
+- [ ] (Opcional) GPS simulado — terminal 1: `cd snow-resorts-mobile && npm run mock-gps:install && npm run start:mock-gps`
+- [ ] (Opcional) GPS simulado — terminal 2: `cd snow-resorts-mobile && npm run ios:sim`
 - [ ] Login: `demo@snow-resorts.com` / `Password123!`
