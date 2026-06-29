@@ -60,7 +60,7 @@ Repeat for every folder. Order matters once: tag & publish `snow-resorts-shared`
 
 ```bash
 cd snow-resorts-shared && ./mvnw install        # publish libs to local ~/.m2
-cd ../snow-resorts-infra && make dev            # Postgres+PostGIS, Redis, MinIO, nginx gateway (:8080) + seed
+cd ../snow-resorts-infra && make dev            # Postgres+PostGIS, Redis, MinIO, Mailpit, nginx (:8080) + seed
 cd ../snow-resorts-auth-service && ./mvnw spring-boot:run
 # ...repeat for the other services (auth :8081, user :8082, resort :8083, location :8084, activity :8085)
 ```

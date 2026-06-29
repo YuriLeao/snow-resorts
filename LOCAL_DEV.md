@@ -109,13 +109,25 @@ EXPO_PUBLIC_MAPBOX_TOKEN=pk.seu_token_aqui
 
 Crie `**snow-resorts-mobile/.env.local**` (não versionado):
 
-```env
-# Simulador iOS: deep link usa localhost (evita timeout com IP da LAN).
-REACT_NATIVE_PACKAGER_HOSTNAME=localhost
+**Simulador iOS:**
 
-# Metro na 8086 (8081–8085 são os microserviços Java).
+```env
+REACT_NATIVE_PACKAGER_HOSTNAME=localhost
 RCT_METRO_PORT=8086
 ```
+
+**Celular físico (mesmo Wi‑Fi que o Mac):**
+
+```env
+REACT_NATIVE_PACKAGER_HOSTNAME=192.168.3.18
+RCT_METRO_PORT=8086
+EXPO_PUBLIC_API_BASE_URL=http://192.168.3.18:8080/snow-resort-service/v1
+EXPO_PUBLIC_WS_BASE_URL=ws://192.168.3.18:8080/ws
+```
+
+Substitua `192.168.3.18` pelo IP do Mac (`ipconfig getifaddr en0`).
+
+Para **Esqueci minha senha** no celular, crie `snow-resorts-auth-service/.env.local` (copie de [`.env.local.example`](snow-resorts-auth-service/.env.local.example)) com o **mesmo IP** do mobile. O profile `local` carrega esse arquivo automaticamente ao rodar `./mvnw spring-boot:run` — não precisa `export` manual.
 
 ### 4. Mobile — build nativo iOS (primeira vez)
 
@@ -202,7 +214,7 @@ Se `POSTGRES_PORT=5433`, exporte **antes** de iniciar os serviços no mesmo term
 **Após todos subirem**, reexecute o seed se resorts/perfil demo não aparecerem:
 
 ```bash
-cd snow-resorts-infra z
+cd snow-resorts-infra
 make seed
 ```
 
@@ -313,6 +325,27 @@ npm run ios:sim
 
 ---
 
+## Recuperar senha (Mailpit + redirect)
+
+E-mails de recuperação **não** vão para Gmail/Mail do celular — ficam no **Mailpit** (SMTP local, custo **$0**). O auth-service (profile `local`) envia via `localhost:1025`; sem Mailpit/SMTP, o token cai só no log do auth-service.
+
+| Dispositivo | URL do Mailpit |
+| ----------- | -------------- |
+| Simulador iOS (Safari) | [http://localhost:8025](http://localhost:8025) |
+| Celular físico (mesmo Wi‑Fi) | `http://<IP_DO_MAC>:8025` (ex.: `http://192.168.3.18:8025`) |
+
+**Link no e-mail (HTML, clicável):** `http://localhost:8080/reset-password?token=...` (simulador) ou `http://<IP_DO_MAC>:8080/reset-password?token=...` (celular, via `.env.local` do auth-service).
+
+**Celular físico:** crie `snow-resorts-auth-service/.env.local` com `PASSWORD_RESET_BASE_URL=http://<IP_DO_MAC>:8080/reset-password` (mesmo IP do mobile). Carregado automaticamente no `./mvnw spring-boot:run`. Mailpit: `http://<IP_DO_MAC>:8025`.
+
+**Fluxo:** app → **Esqueci minha senha** → `demo@snow-resorts.com` → Mailpit **no mesmo dispositivo** do app → toque **Reset your password** → redirect HTTP → app em **Redefinir senha** (token preenchido).
+
+**Não funciona:** Mailpit no Chrome do Mac (não abre o app no simulador/celular); colar `snowresorts://...` na barra do navegador; link `localhost` no celular físico.
+
+**Reiniciar após mudanças:** auth-service (`application-local.yml`); nginx — `cd snow-resorts-infra/docker && docker compose up -d nginx` (página estática nova).
+
+---
+
 ## URLs úteis
 
 
@@ -323,6 +356,7 @@ npm run ios:sim
 | [http://localhost:8080/swagger/](http://localhost:8080/swagger/)                             | Swagger unificado (5 serviços)              |
 | [http://localhost:9001](http://localhost:9001)                                               | MinIO console (`minioadmin` / `minioadmin`) |
 | [http://localhost:8025](http://localhost:8025)                                               | Mailpit (e-mails de dev)                    |
+| [http://localhost:8080/reset-password?token=…](http://localhost:8080/reset-password)         | Redirect local → app (`snowresorts://`)     |
 | [http://localhost:8086](http://localhost:8086)                                               | Metro bundler                               |
 
 
@@ -399,6 +433,14 @@ Instale o runtime iOS no Xcode ou baixe:
 xcodebuild -downloadPlatform iOS
 ```
 
+### Link de recuperar senha não abre o app
+
+1. Abra o Mailpit **no simulador/celular**, não no Mac.
+2. Toque o link **HTTP** do e-mail (`http://…:8080/reset-password?token=…`), não cole `snowresorts://` manualmente.
+3. Celular físico: exporte `PASSWORD_RESET_BASE_URL` com o **IP do Mac** antes de subir o auth-service.
+4. Confirme nginx com a página de redirect: `curl -s "http://localhost:8080/reset-password?token=test" | head -3`
+5. Reinicie o auth-service após mudar config de e-mail.
+
 ---
 
 ## Ordem resumida (checklist)
@@ -414,3 +456,5 @@ xcodebuild -downloadPlatform iOS
 - [ ] (Opcional) GPS simulado — terminal 1: `cd snow-resorts-mobile && npm run mock-gps:install && npm run start:mock-gps`
 - [ ] (Opcional) GPS simulado — terminal 2: `cd snow-resorts-mobile && npm run ios:sim`
 - [ ] Login: `demo@snow-resorts.com` / `Password123!`
+- [ ] (Opcional) Recuperar senha — Mailpit no mesmo device; link HTTP → redirect → app
+- [ ] (Celular físico) `export PASSWORD_RESET_BASE_URL=http://<IP_MAC>:8080/reset-password` antes do auth-service
