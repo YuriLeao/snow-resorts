@@ -37,6 +37,8 @@ Simulador iOS / dispositivo
 
 ---
 
+
+
 ## Pré-requisitos
 
 Instale e deixe rodando:
@@ -56,7 +58,11 @@ O app mobile **não roda no Expo Go** — usa Mapbox, MMKV e New Architecture. �
 
 ---
 
+
+
 ## Configuração única (primeira vez)
+
+
 
 ### 1. Maven — GitHub Packages
 
@@ -83,6 +89,8 @@ cd snow-resorts-shared
 ./mvnw install
 ```
 
+
+
 ### 2. Biblioteca compartilhada (local)
 
 ```bash
@@ -90,12 +98,16 @@ cd snow-resorts-shared
 ./mvnw install
 ```
 
+
+
 ### 3. Mobile — dependências e tokens
 
 ```bash
 cd snow-resorts-mobile
 npm install
 ```
+
+Após puxar mudanças no `package.json`, rode `npm install` de novo.
 
 Crie `**snow-resorts-mobile/.env**` (não versionado):
 
@@ -127,7 +139,7 @@ EXPO_PUBLIC_WS_BASE_URL=ws://192.168.3.18:8080/ws
 
 Substitua `192.168.3.18` pelo IP do Mac (`ipconfig getifaddr en0`).
 
-Para **Esqueci minha senha** no celular, crie `snow-resorts-auth-service/.env.local` (copie de [`.env.local.example`](snow-resorts-auth-service/.env.local.example)) com o **mesmo IP** do mobile. O profile `local` carrega esse arquivo automaticamente ao rodar `./mvnw spring-boot:run` — não precisa `export` manual.
+Para **Esqueci minha senha** no celular, crie `snow-resorts-auth-service/.env.local` (copie de `[.env.local.example](snow-resorts-auth-service/.env.local.example)`) com o **mesmo IP** do mobile. O profile `local` carrega esse arquivo automaticamente ao rodar `./mvnw spring-boot:run` — não precisa `export` manual.
 
 ### 4. Mobile — build nativo iOS (primeira vez)
 
@@ -151,9 +163,28 @@ export NODE_BINARY=/Users/SEU_USUARIO/.local/node26/bin/node
 
 **Importante:** não use `--no-bundler` no `ios:sim` — o Expo CLI ignora `RCT_METRO_PORT` nesse modo e sempre abre o app na porta **8081** (que é o auth-service). O script `npm run ios:sim` passa `--port 8086` e reutiliza o Metro se ele já estiver rodando em outro terminal.
 
+### Estrutura do código mobile
+
+
+| Pasta             | Conteúdo                                                                                              |
+| ----------------- | ----------------------------------------------------------------------------------------------------- |
+| `app/`            | Rotas Expo Router (telas = `export default function …Screen()`)                                       |
+| `src/theme/`      | Tokens — `colors.ts` (paleta), `interactive.ts` (classes NativeWind), `layout.ts` (dimensões do mapa) |
+| `src/components/` | UI reutilizável (`Button`, `Segmented`, `auth/*`, `map/*`)                                            |
+| `src/hooks/`      | React Query + GPS/descida                                                                             |
+| `src/api/`        | Cliente axios + contratos tipados                                                                     |
+| `src/dev/`        | Stub do mock GPS (`mockGps.stub.ts`) quando `dev-local/mock-gps/` não está instalado                  |
+
+
+Telas de auth usam `AuthScreenLayout`; demais telas usam `SafeAreaView` / `ScrollView` diretamente. Superfícies e inputs devem importar classes de `@/theme/interactive`.
+
 ---
 
+
+
 ## Rotina diária — subir tudo
+
+
 
 ### Passo 1 — Infra Docker
 
@@ -178,6 +209,8 @@ O valor também fica em `snow-resorts-infra/.env` após `make up`.
 docker compose -f docker/docker-compose.yml ps
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/swagger/
 ```
+
+
 
 ### Passo 2 — Cinco microserviços Java
 
@@ -211,12 +244,16 @@ Se `POSTGRES_PORT=5433`, exporte **antes** de iniciar os serviços no mesmo term
 
 **Reinicie o resort-service** (`snow-resorts-resort-service`) após puxar migrações Flyway novas (ex.: V2–V4 com seeds de resorts). O Spring Boot aplica as migrações só na subida; sem restart, o catálogo no app pode ficar desatualizado mesmo com `make seed`.
 
+**Reinicie o activity-service** após migrações novas (ex.: `V3__drop_run_tracks_s3.sql`).
+
 **Após todos subirem**, reexecute o seed se resorts/perfil demo não aparecerem:
 
 ```bash
 cd snow-resorts-infra
 make seed
 ```
+
+
 
 ### Passo 3 — App mobile no simulador
 
@@ -244,20 +281,22 @@ No simulador: abra **Snow Resorts** → toque no servidor com bolinha verde (`ht
 
 ```bash
 cd snow-resorts-mobile
-npm run ios
+npm run ioss
 ```
 
 Se aparecer timeout no `openurl` no final, ignore — o app já foi instalado; abra manualmente no simulador.
 
-**Após mudar `RCT_METRO_PORT` ou `ios/.xcode.env.local`**, recompile:
+**Após mudar** `RCT_METRO_PORT` **ou** `ios/.xcode.env.local`, recompile:
 
 ```bash
 npm run ios:sim
 ```
 
+
+
 ### GPS simulado — descida no Valle Nevado (opcional)
 
-Para testar **mapa + descida** sem GPS real no simulador, use o mock local de Valle Nevado (estacionamento → Gondola Bajo Cero → topo Sol 2 → descida completa). O código do simulador **não vai pro git** — fica só na sua máquina.
+Para testar **mapa + descida** sem GPS real no simulador, use o mock local de Valle Nevado (estacionamento → Bajo Cero → Camino Bajo → Cuando → caminhada ao estacionamento). O código do simulador **não vai pro git** — fica só na sua máquina.
 
 **Como funciona**
 
@@ -301,8 +340,8 @@ npm run ios:sim
 **Variáveis (opcionais)**
 
 
-| Variável | Efeito |
-|----------|--------|
+| Variável                         | Efeito                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
 | `EXPO_PUBLIC_MOCK_LOCATION=true` | Liga o simulador (`start:mock-gps` já define; exige `dev-local/mock-gps/` instalado) |
 
 
@@ -310,9 +349,13 @@ npm run ios:sim
 
 1. Apague `snow-resorts-mobile/dev-local/mock-gps/`
 2. No `.gitignore` do mobile, remova o bloco `[LOCAL DEV] GPS mock`
-3. (Opcional) apague `dev-local.mock-gps.example/` e `src/dev/mockGps.*`
+3. (Opcional) apague `dev-local.mock-gps.example/` se não for mais usar o template
+
+Mantenha `src/dev/mockGps.stub.ts` e `src/dev/mockGps.types.ts` — são o fallback commitado quando o mock local não está instalado.
 
 ---
+
+
 
 ## Login de teste
 
@@ -325,14 +368,18 @@ npm run ios:sim
 
 ---
 
+
+
 ## Recuperar senha (Mailpit + redirect)
 
 E-mails de recuperação **não** vão para Gmail/Mail do celular — ficam no **Mailpit** (SMTP local, custo **$0**). O auth-service (profile `local`) envia via `localhost:1025`; sem Mailpit/SMTP, o token cai só no log do auth-service.
 
-| Dispositivo | URL do Mailpit |
-| ----------- | -------------- |
-| Simulador iOS (Safari) | [http://localhost:8025](http://localhost:8025) |
+
+| Dispositivo                  | URL do Mailpit                                              |
+| ---------------------------- | ----------------------------------------------------------- |
+| Simulador iOS (Safari)       | [http://localhost:8025](http://localhost:8025)              |
 | Celular físico (mesmo Wi‑Fi) | `http://<IP_DO_MAC>:8025` (ex.: `http://192.168.3.18:8025`) |
+
 
 **Link no e-mail (HTML, clicável):** `http://localhost:8080/reset-password?token=...` (simulador) ou `http://<IP_DO_MAC>:8080/reset-password?token=...` (celular, via `.env.local` do auth-service).
 
@@ -345,6 +392,8 @@ E-mails de recuperação **não** vão para Gmail/Mail do celular — ficam no *
 **Reiniciar após mudanças:** auth-service (`application-local.yml`); nginx — `cd snow-resorts-infra/docker && docker compose up -d nginx` (página estática nova).
 
 ---
+
+
 
 ## URLs úteis
 
@@ -361,6 +410,8 @@ E-mails de recuperação **não** vão para Gmail/Mail do celular — ficam no *
 
 
 ---
+
+
 
 ## Parar tudo
 
@@ -384,7 +435,11 @@ make dev
 
 ---
 
+
+
 ## Problemas comuns
+
+
 
 ### `ports are not available: 5432`
 
@@ -403,6 +458,8 @@ O binário iOS foi compilado com a porta padrão **8081**, mas o Metro está na 
 1. Confirme `RCT_METRO_PORT=8086` em `.env.local` e `ios/.xcode.env.local`.
 2. Recompile: `npm run ios:sim`.
 3. Atalho sem rebuild: no dev client, **Enter URL manually** → `http://localhost:8086`.
+
+
 
 ### `simctl openurl` timeout (code 60)
 
@@ -425,6 +482,8 @@ cd snow-resorts-infra
 make clean-data && make dev
 ```
 
+
+
 ### Simulador não encontrado
 
 Instale o runtime iOS no Xcode ou baixe:
@@ -432,6 +491,8 @@ Instale o runtime iOS no Xcode ou baixe:
 ```bash
 xcodebuild -downloadPlatform iOS
 ```
+
+
 
 ### Link de recuperar senha não abre o app
 
@@ -442,6 +503,8 @@ xcodebuild -downloadPlatform iOS
 5. Reinicie o auth-service após mudar config de e-mail.
 
 ---
+
+
 
 ## Ordem resumida (checklist)
 

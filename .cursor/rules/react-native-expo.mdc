@@ -38,3 +38,11 @@ alwaysApply: false
 
 - Ao gerar novas telas, crie o arquivo diretamente no formato do Expo Router: exportando por padrão (`export default function Screen()`) para que o roteador identifique a página.
 - Não gere código de teste automatizado (Jest) a menos que explicitamente solicitado, priorizando velocidade na construção das features visuais.
+
+## 6. Tema e componentes (Snow Resorts)
+
+- Reutilize tokens de `@/theme/interactive` para superfícies, inputs, list rows e CTAs — não duplique classes como `bg-background-elevated` ou `border-frost-border` inline.
+- Dimensões fixas de overlays do mapa: `@/theme/layout` (`MAP_OVERLAY`, `MAP_OVERLAY_CONTROL_STYLE`, `RESORT_SELECTOR`).
+- Cores imperativas (gradientes, Mapbox, `ActivityIndicator`): `colors` e `trailColor()` de `@/theme/colors`.
+- Telas em `app/`: `export default function FooScreen()` — sem wrapper genérico `Screen`; auth usa `AuthScreenLayout`, demais usam `SafeAreaView` / `ScrollView`.
+- Novos componentes compartilhados em `src/components/`; hooks de API em `src/hooks/queries.ts`; contratos REST em `src/api/types.ts`.

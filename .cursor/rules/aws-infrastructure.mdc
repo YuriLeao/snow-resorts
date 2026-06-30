@@ -64,7 +64,7 @@ alwaysApply: false
 | **RDS PostgreSQL 16** | PostGIS + TimescaleDB, schemas isolados | `auth`, `users`, `resorts`, `location`, `activity` — sem JOIN cross-schema |
 | **ElastiCache Redis** | Pub/Sub WebSocket, cache leaderboard/resort | Obrigatório para location-service |
 | **S3** | Tracks GPS gzip, map packages offline | Lifecycle → Glacier após 1 ano; encryption KMS |
-| **SNS + SQS** | `RunCompleted`, `ReviewCreated` | Eventos assíncronos; invalidar cache Redis |
+| **SNS + SQS** | `RunCompleted` (live) | Eventos assíncronos; invalidar cache Redis. Review aggregates são síncronos no resort-service hoje. |
 | **Secrets Manager** | 1 secret por serviço | Auto-rotate JWT secret e DB password a cada 90 dias |
 
 **Flyway por schema:** Cada serviço versiona migrations no seu schema (`auth`, `users`, etc.) — alinhado com [`java-spring-boot.mdc`](java-spring-boot.mdc).
