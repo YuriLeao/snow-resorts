@@ -281,7 +281,7 @@ No simulador: abra **Snow Resorts** → toque no servidor com bolinha verde (`ht
 
 ```bash
 cd snow-resorts-mobile
-npm run ioss
+npm run ios
 ```
 
 Se aparecer timeout no `openurl` no final, ignore — o app já foi instalado; abra manualmente no simulador.
@@ -345,6 +345,8 @@ npm run ios:sim
 | `EXPO_PUBLIC_MOCK_LOCATION=true` | Liga o simulador (`start:mock-gps` já define; exige `dev-local/mock-gps/` instalado) |
 
 
+> `.env.local` **tem prioridade sobre** `.env`**.** Se o mock continuar ligado com `false` no `.env`, verifique se `.env.local` não define `EXPO_PUBLIC_MOCK_LOCATION=true`. Depois de mudar, reinicie o Metro com `npx expo start --clear --port 8086`.
+
 **Remover o mock depois**
 
 1. Apague `snow-resorts-mobile/dev-local/mock-gps/`
@@ -352,6 +354,16 @@ npm run ios:sim
 3. (Opcional) apague `dev-local.mock-gps.example/` se não for mais usar o template
 
 Mantenha `src/dev/mockGps.stub.ts` e `src/dev/mockGps.types.ts` — são o fallback commitado quando o mock local não está instalado.
+
+### Velocidade com GPS real (celular na pista)
+
+Com `EXPO_PUBLIC_MOCK_LOCATION=false`, a descida usa o chip GNSS do aparelho (`Accuracy.BestForNavigation`, updates a cada **1 s**). A velocidade segue esta ordem:
+
+1. **`coords.speed` do SO** (m/s) — quando o chip envia valor válido (mais preciso).
+2. **Derivação em janela** — soma das distâncias dos últimos 2–3 fixes ÷ tempo total, quando `speed` não vem.
+3. **Fallback ponto a ponto** — só se a janela ainda não tiver dados suficientes.
+
+O HUD aplica uma média curta (3 amostras) só para exibição; os pontos gravados usam a velocidade filtrada (Kalman). Precisão melhor ao ar livre na pista; caminhada lenta no iOS pode oscilar se o SO não reportar `speed`.
 
 ---
 
