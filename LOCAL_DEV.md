@@ -173,7 +173,7 @@ export NODE_BINARY=/Users/SEU_USUARIO/.local/node26/bin/node
 | `src/components/` | UI reutilizável (`Button`, `Segmented`, `auth/*`, `map/*`)                                            |
 | `src/hooks/`      | React Query + GPS/descida                                                                             |
 | `src/api/`        | Cliente axios + contratos tipados                                                                     |
-| `src/dev/`        | Stub do mock GPS (`mockGps.stub.ts`) quando `dev-local/mock-gps/` não está instalado                  |
+| `src/dev/`        | Mock GPS stub + types (`mockGps.stub.ts` fallback)                                                    |
 
 
 Telas de auth usam `AuthScreenLayout`; demais telas usam `SafeAreaView` / `ScrollView` diretamente. Superfícies e inputs devem importar classes de `@/theme/interactive`.
@@ -296,29 +296,28 @@ npm run ios:sim
 
 ### GPS simulado — descida no Valle Nevado (opcional)
 
-Para testar **mapa + descida** sem GPS real no simulador, use o mock local de Valle Nevado (estacionamento → Bajo Cero → Camino Bajo → Cuando → caminhada ao estacionamento). O código do simulador **não vai pro git** — fica só na sua máquina.
+Para testar **mapa + descida** sem GPS real no simulador, use o mock de Valle Nevado (estacionamento → Bajo Cero → caminhada até a Diablada → Cuando).
 
 **Como funciona**
 
 
 | O quê                          | Onde                                                     | Git                         |
 | ------------------------------ | -------------------------------------------------------- | --------------------------- |
-| Template (cópia de referência) | `snow-resorts-mobile/dev-local.mock-gps.example/`        | commitado                   |
-| Sua instalação ativa           | `snow-resorts-mobile/dev-local/mock-gps/`                | **ignorado** (`.gitignore`) |
-| App sem mock instalado         | usa `src/dev/mockGps.stub.ts` (GPS real / simulador iOS) | commitado                   |
+| Simulador (padrão)             | `snow-resorts-mobile/dev-local.mock-gps.example/`        | commitado                   |
+| Override local (opcional)      | `snow-resorts-mobile/dev-local/mock-gps/`                | **ignorado** (`.gitignore`) |
+| Fallback                       | `src/dev/mockGps.stub.ts` (GPS real)                     | commitado                   |
 
 
-O Metro resolve o módulo `@local/mock-gps` para a pasta `dev-local/mock-gps/` quando ela existe; senão, usa o stub vazio.
+O Metro resolve `@local/mock-gps` nesta ordem: `dev-local/mock-gps/` (se existir) → template commitado → stub.
 
 > **Atenção:** os comandos abaixo são só para copiar do bloco de código — **não** cole símbolos da saída do terminal (`√`, `›`, etc.). Se aparecer `command not found: √`, foi isso.
 >
 > Rode sempre dentro de `snow-resorts-mobile/` (não na pasta raiz `snow-resorts/`).
 
-**Terminal 1 — instalar mock (uma vez) e Metro**
+**Terminal 1 — Metro com mock**
 
 ```bash
 cd snow-resorts-mobile
-npm run mock-gps:install
 npm run start:mock-gps
 ```
 
@@ -342,18 +341,17 @@ npm run ios:sim
 
 | Variável                         | Efeito                                                                               |
 | -------------------------------- | ------------------------------------------------------------------------------------ |
-| `EXPO_PUBLIC_MOCK_LOCATION=true` | Liga o simulador (`start:mock-gps` já define; exige `dev-local/mock-gps/` instalado) |
+| `EXPO_PUBLIC_MOCK_LOCATION=true` | Liga o simulador (`start:mock-gps` já define) |
 
 
 > `.env.local` **tem prioridade sobre** `.env`**.** Se o mock continuar ligado com `false` no `.env`, verifique se `.env.local` não define `EXPO_PUBLIC_MOCK_LOCATION=true`. Depois de mudar, reinicie o Metro com `npx expo start --clear --port 8086`.
 
-**Remover o mock depois**
+**Remover / desativar o mock**
 
-1. Apague `snow-resorts-mobile/dev-local/mock-gps/`
-2. No `.gitignore` do mobile, remova o bloco `[LOCAL DEV] GPS mock`
-3. (Opcional) apague `dev-local.mock-gps.example/` se não for mais usar o template
+1. Use `EXPO_PUBLIC_MOCK_LOCATION=false` (ou remova a variável) e reinicie o Metro
+2. (Opcional) apague `dev-local/mock-gps/` se tiver criado uma cópia local para override
 
-Mantenha `src/dev/mockGps.stub.ts` e `src/dev/mockGps.types.ts` — são o fallback commitado quando o mock local não está instalado.
+Mantenha `src/dev/mockGps.stub.ts` e `src/dev/mockGps.types.ts` — fallback commitado.
 
 ### Velocidade com GPS real (celular na pista)
 
@@ -528,7 +526,7 @@ xcodebuild -downloadPlatform iOS
 - [ ] `make seed` (se necessário)
 - [ ] `cd snow-resorts-mobile && npm start` (terminal 1)
 - [ ] `npm run ios:sim` ou `npm run ios` (terminal 2)
-- [ ] (Opcional) GPS simulado — terminal 1: `cd snow-resorts-mobile && npm run mock-gps:install && npm run start:mock-gps`
+- [ ] (Opcional) GPS simulado — terminal 1: `cd snow-resorts-mobile && npm run start:mock-gps`
 - [ ] (Opcional) GPS simulado — terminal 2: `cd snow-resorts-mobile && npm run ios:sim`
 - [ ] Login: `demo@snow-resorts.com` / `Password123!`
 - [ ] (Opcional) Recuperar senha — Mailpit no mesmo device; link HTTP → redirect → app
