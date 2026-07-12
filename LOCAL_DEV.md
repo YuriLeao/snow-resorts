@@ -2,6 +2,8 @@
 
 Guia passo a passo para subir **toda a aplicação** no Mac: infra Docker, 5 microserviços Java, gateway nginx e app mobile no simulador iOS.
 
+**Arquitetura da plataforma:** [ARCHITECTURE.md](./ARCHITECTURE.md)
+
 Custo: **$0** (tudo roda na sua máquina).
 
 ---
@@ -510,6 +512,26 @@ docker compose -f docker/docker-compose.yml restart nginx
 2. Reinicie o **location-service** após mudanças no backend.
 3. Recarregue o app (Metro) — o cliente STOMP precisa negociar o subprotocolo `v12.stomp` (corrigido em `locationStompClient.ts`; não use `webSocketFactory` sem os protocolos).
 4. No overlay dev, deve aparecer `STOMP on` e `amigo` atualizando a cada poucos segundos.
+
+### Posições em tempo real (Redis)
+
+O **location-service** guarda a posição atual de cada membro **somente em Redis** (`location:group:{groupId}`, HASH com TTL de 24h). Grupos e membership continuam no Postgres.
+
+Verificar no Redis após publicar posições:
+
+```bash
+docker exec -it snow-redis redis-cli KEYS 'location:group:*'
+docker exec -it snow-redis redis-cli TTL 'location:group:<UUID_DO_GRUPO>'
+docker exec -it snow-redis redis-cli HGETALL 'location:group:<UUID_DO_GRUPO>'
+```
+
+Config em `snow-resorts-location-service/src/main/resources/application.yml`:
+
+```yaml
+location:
+  positions:
+    retention-hours: 24
+```
 
 ### `geography` / `geometry does not exist` (resort-service)
 
