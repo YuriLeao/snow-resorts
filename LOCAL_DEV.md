@@ -513,6 +513,22 @@ docker compose -f docker/docker-compose.yml restart nginx
 3. Recarregue o app (Metro) — o cliente STOMP precisa negociar o subprotocolo `v12.stomp` (corrigido em `locationStompClient.ts`; não use `webSocketFactory` sem os protocolos).
 4. No overlay dev, deve aparecer `STOMP on` e `amigo` atualizando a cada poucos segundos.
 
+### Localização em segundo plano (grupo ativo)
+
+Com um grupo **Ativado**, o app continua publicando GPS com a tela bloqueada ou em outro app (celular no bolso).
+
+**Requisitos:**
+
+- **Dev client** — não funciona no Expo Go; após mudanças nativas (`expo-task-manager`), rebuild:
+  ```bash
+  cd snow-resorts-mobile
+  npm run ios   # ou npm run android
+  ```
+- **iOS:** conceda localização **Sempre** quando o app pedir ao ativar o grupo.
+- **Android:** aparece uma notificação persistente enquanto o grupo estiver ativo (*"Compartilhando localização com o grupo"*).
+
+**Teste:** ative o grupo, bloqueie a tela, confira no Redis que `location:group:<UUID>` continua atualizando e que o amigo vê a posição.
+
 ### Posições em tempo real (Redis)
 
 O **location-service** guarda a posição atual de cada membro **somente em Redis** (`location:group:{groupId}`, HASH com TTL de 24h). Grupos e membership continuam no Postgres.
