@@ -483,6 +483,34 @@ Metro não está rodando ou o dev client não conectou. Suba `npm start` e toque
 
 Confirme `RNMAPBOX_MAPS_DOWNLOAD_TOKEN` no `.env` antes de `npx expo prebuild`.
 
+### `PrivacyInfo.xcprivacy` couldn't be opened (Xcode)
+
+O projeto iOS referencia `ios/SnowResorts/PrivacyInfo.xcprivacy` (manifesto de privacidade exigido pela Apple). A pasta `ios/` não está no git; após `expo prebuild --clean` ou edições manuais o arquivo pode sumir.
+
+```bash
+cd snow-resorts-mobile
+npm run ensure:ios-privacy
+cd ios && pod install && cd ..
+```
+
+Depois faça **Product → Clean Build Folder** no Xcode e compile de novo. O template versionado fica em `support/ios/PrivacyInfo.xcprivacy`.
+
+### `The host [location_service] is not valid` (location-service / WebSocket)
+
+O nginx, no bloco `/ws`, enviava `Host: location_service` (nome do upstream com `_`). O Tomcat 10+ rejeita isso. Corrigido em `snow-resorts-infra/docker/nginx/nginx.conf` — recarregue o gateway:
+
+```bash
+cd snow-resorts-infra
+docker compose -f docker/docker-compose.yml restart nginx
+```
+
+### `STOMP off` no mapa (localização do amigo parada)
+
+1. Confirme que o grupo está **Ativado** na aba Amigos → Grupos.
+2. Reinicie o **location-service** após mudanças no backend.
+3. Recarregue o app (Metro) — o cliente STOMP precisa negociar o subprotocolo `v12.stomp` (corrigido em `locationStompClient.ts`; não use `webSocketFactory` sem os protocolos).
+4. No overlay dev, deve aparecer `STOMP on` e `amigo` atualizando a cada poucos segundos.
+
 ### `geography` / `geometry does not exist` (resort-service)
 
 PostGIS está instalado, mas o `currentSchema=resorts` na JDBC deixa o `search_path` só em `resorts`, sem `public` (onde ficam os tipos/funções PostGIS). Reinicie o resort-service após atualizar o código. Se persistir, reset da infra:
