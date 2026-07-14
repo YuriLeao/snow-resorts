@@ -547,7 +547,7 @@ Com um grupo **Ativado**, o app continua publicando GPS com a tela bloqueada ou 
   cd snow-resorts-mobile
   npm run ios   # ou npm run android
   ```
-- **iOS:** conceda localização **Sempre** ao ativar o grupo. Se o overlay mostrar `bgWake fail:no_always_permission`, abra Ajustes → Snow Resorts → Localização → **Sempre**. Sem Always, o app até recebe o amigo via STOMP, mas **não publica** de forma confiável após o lock. `task_not_defined` = reload Metro / confirmar que `index.js` carrega `registerLocationTasks`. Teste com **celular físico + andar**.
+- **iOS:** conceda localização **Sempre** ao ativar o grupo. Se o overlay mostrar `bgWake fail:no_always_permission`, abra Ajustes → Snow Resorts → Localização → **Sempre**. Sem Always, o app até recebe o amigo via STOMP, mas **não publica** de forma confiável após o lock. `task_not_defined` = Reload completo (não só Fast Refresh); a task deve estar registrada em `index.js` **e** `app/_layout.tsx`, e `ensureGroupLocationTaskDefined()` roda no start. Teste com **celular físico + andar**.
 - **Android:** notificação persistente enquanto o grupo estiver ativo.
 - **Simulador iOS** não é publicador BG confiável — use celular físico como publicador.
 
