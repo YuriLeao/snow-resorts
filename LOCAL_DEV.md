@@ -323,6 +323,8 @@ cd snow-resorts-mobile
 npm run start:mock-gps
 ```
 
+Por padrão o mock vale **só no simulador/emulador**. Celular físico no mesmo Metro usa GPS real. Para forçar mock no device: `EXPO_PUBLIC_MOCK_ON_DEVICE=true` (junto com `start:mock-gps`).
+
 **Terminal 2 — simulador iOS**
 
 ```bash
@@ -330,6 +332,7 @@ cd snow-resorts-mobile
 npm run ios:sim
 ```
 
+No celular (mesmo Metro / Wi‑Fi do Mac): abra o app normalmente — sem badge de GPS simulado.
 **No app**
 
 - Badge no mapa: `GPS simulado · Valle Nevado · [fase]` (ex.: *Pista Sol 2*)
@@ -343,8 +346,8 @@ npm run ios:sim
 
 | Variável                         | Efeito                                                                               |
 | -------------------------------- | ------------------------------------------------------------------------------------ |
-| `EXPO_PUBLIC_MOCK_LOCATION=true` | Liga o simulador (`start:mock-gps` já define) |
-
+| `EXPO_PUBLIC_MOCK_LOCATION=true` | Liga o mock no **simulador** (`start:mock-gps` já define)                             |
+| `EXPO_PUBLIC_MOCK_ON_DEVICE=true` | Também liga mock no **celular físico** (opcional; testes de background com mock)    |
 
 > `.env.local` **tem prioridade sobre** `.env`**.** Se o mock continuar ligado com `false` no `.env`, verifique se `.env.local` não define `EXPO_PUBLIC_MOCK_LOCATION=true`. Depois de mudar, reinicie o Metro com `npx expo start --clear --port 8086`.
 
@@ -354,6 +357,19 @@ npm run ios:sim
 2. (Opcional) apague `dev-local/mock-gps/` se tiver criado uma cópia local para override
 
 Mantenha `src/dev/mockGps.stub.ts` e `src/dev/mockGps.types.ts` — fallback commitado.
+
+#### Mock GPS em segundo plano
+
+Com mock ligado, a rota avança em background pelo mesmo `expo-task-manager` da localização de grupo (`advanceTo` por hora do sistema). Precisa de **dev client** + permissão **Sempre** (e `MOCK_ON_DEVICE` no celular físico). Cadência e overlay: ver [Localização em segundo plano](#localização-em-segundo-plano-grupo-ativo).
+
+#### Mock + grupo cross-device (celular publica, simulador recebe)
+
+| Dispositivo | Papel | Config |
+| ----------- | ----- | ------ |
+| **Celular físico** | publicador | GPS real **ou** mock com `MOCK_ON_DEVICE=true`; grupo **Ativo no mapa**; **Sempre**; dev client |
+| **Simulador iOS** | receptor | mesmo Metro (`start:mock-gps`); mesmo grupo **Ativo no mapa** |
+
+Bloqueie o celular 30–60 s e no simulador confira `amigo` no overlay / Redis (`HGETALL location:group:<UUID>`). "Ativo no mapa" é por aparelho; o simulador não é publicador BG confiável.
 
 ### Velocidade com GPS real (celular na pista)
 
@@ -511,11 +527,18 @@ docker compose -f docker/docker-compose.yml restart nginx
 1. Confirme que o grupo está **Ativado** na aba Amigos → Grupos.
 2. Reinicie o **location-service** após mudanças no backend.
 3. Recarregue o app (Metro) — o cliente STOMP precisa negociar o subprotocolo `v12.stomp` (corrigido em `locationStompClient.ts`; não use `webSocketFactory` sem os protocolos).
-4. No overlay dev, deve aparecer `STOMP on` e `amigo` atualizando a cada poucos segundos.
+4. No overlay dev: `in` = último push STOMP **recebido** do amigo; `try`/`pub` = publish **deste aparelho**; `euVia=stomp|rest` = canal da **sua** última tentativa (não do amigo); `bgWake` = último wake/keep-alive persistido (publisher); `amigo` / `srv eu|amigo` = idade ao vivo do `recordedAt`. Se `amigo` e `srv amigo` estão baixos, o amigo está chegando — mesmo que `euVia=rest`. No Network, `GET .../positions` é bootstrap pontual (não o feed live); `POST .../position` é publish REST.
 
 ### Localização em segundo plano (grupo ativo)
 
 Com um grupo **Ativado**, o app continua publicando GPS com a tela bloqueada ou em outro app (celular no bolso).
+
+**Configuração (app):**
+
+- Foreground: `watchPositionAsync` a cada **5 s** (`Accuracy.High`) via **STOMP**.
+- Background: `expo-task-manager` com `pausesUpdatesAutomatically: false`, `activityType: Fitness`, `distanceInterval: 0`, **`deferredUpdatesInterval` ~15 s** (iOS ignora `timeInterval`).
+- Publicação: **STOMP** enquanto a sessão estiver saudável no keep-alive (~30 s Apple); depois **REST** no farewell + em cada wake de CLLocation (`preferRest`, com `beginBackgroundTask` no wake).
+- Overlay no **publisher** (ao desbloquear): `bgWake Xs ok|fail:reason` — se `fail:ensure_sharing_failed` / `no_token` / `no_group`, o wake não publicou.
 
 **Requisitos:**
 
@@ -524,10 +547,11 @@ Com um grupo **Ativado**, o app continua publicando GPS com a tela bloqueada ou 
   cd snow-resorts-mobile
   npm run ios   # ou npm run android
   ```
-- **iOS:** conceda localização **Sempre** quando o app pedir ao ativar o grupo.
-- **Android:** aparece uma notificação persistente enquanto o grupo estiver ativo (*"Compartilhando localização com o grupo"*).
+- **iOS:** conceda localização **Sempre** ao ativar o grupo. Se o overlay mostrar `bgWake fail:no_always_permission`, abra Ajustes → Snow Resorts → Localização → **Sempre**. Sem Always, o app até recebe o amigo via STOMP, mas **não publica** de forma confiável após o lock. `task_not_defined` = reload Metro / confirmar que `index.js` carrega `registerLocationTasks`. Teste com **celular físico + andar**.
+- **Android:** notificação persistente enquanto o grupo estiver ativo.
+- **Simulador iOS** não é publicador BG confiável — use celular físico como publicador.
 
-**Teste:** ative o grupo, bloqueie a tela, confira no Redis que `location:group:<UUID>` continua atualizando e que o amigo vê a posição.
+**Teste:** ative o grupo no celular (Always), bloqueie **>40 s** andando, confira no Redis/`amigo` no sim. Unlock no celular: overlay `bgWake … ok:wake_fix` (ou `ok:keep_alive_farewell`). Com mock só no sim (`start:mock-gps` sem `MOCK_ON_DEVICE`), o celular usa GPS real nesse fluxo.
 
 ### Posições em tempo real (Redis)
 
