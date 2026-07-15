@@ -160,11 +160,15 @@ Grupos ao vivo e compartilhamento de posição entre amigos.
 
 | Endpoint | Descrição |
 |----------|-----------|
-| `POST /location/groups` | Cria grupo (código de convite) |
-| `POST /location/groups/{inviteCode}/join` | Entra no grupo |
-| `GET /location/groups/{id}` | Detalhe + membros |
+| `POST /location/groups` | Cria grupo (código de convite; expira em **12h**; **1 membership por usuário**) |
+| `POST /location/groups/{inviteCode}/join` | Entra no grupo (404 se expirado; 409 se já estiver em outro grupo) |
+| `DELETE /location/groups/{id}/membership` | Sai do grupo; limpa posição ao vivo; se for o último membro (ou grupo já expirado), dissolve Postgres + Redis |
+| `GET /location/groups/{id}` | Detalhe + membros (404 se expirado — grupo é dissolvido) |
 | `GET /location/groups/{id}/positions` | Snapshot das posições atuais |
-| `POST /location/groups/{id}/position` | Fallback REST (rate limit ~12/min) |
+| `POST /location/groups/{id}/position` | Fallback REST (rate limit ~30/min) |
+| `DELETE /location/groups/{id}/position` | Apaga a posição ao vivo do caller (minimização) |
+
+Ao expirar (job ~15 min ou acesso post-expiry), o grupo é dissolvido e as posições Redis/STOMP desse grupo são apagadas.
 
 **WebSocket STOMP** (`/ws/location`):
 
@@ -172,7 +176,7 @@ Grupos ao vivo e compartilhamento de posição entre amigos.
 - Assinar: `/topic/groups/{groupId}`
 - JWT no `CONNECT`; membership validada antes de subscribe
 
-**Redis:** HASH `location:group:{groupId}` (TTL 24h) + Pub/Sub para fanout entre instâncias → STOMP.
+**Redis:** HASH `location:group:{groupId}` (TTL 2h, renovado no upsert; `DELETE /position` limpa antes) + Pub/Sub para fanout entre instâncias → STOMP.
 
 ### activity-service (`:8085`)
 
@@ -183,7 +187,7 @@ Tracking de descidas e leaderboard entre amigos.
 | `POST /runs/start` | Inicia run (`resortId`, `trailId` opcional) |
 | `PATCH /runs/{id}/points` | Batch de pontos GPS (`Idempotency-Key` opcional) |
 | `POST /runs/{id}/finish` | Finaliza e calcula métricas |
-| `GET /runs` | Histórico paginado |
+| `GET /runs` | Histórico paginado (`userId` opcional = descidas de um amigo) |
 | `GET /runs/{id}` | Detalhe + métricas |
 | `GET /runs/{id}/replay` | GeoJSON para replay no mapa |
 | `DELETE /runs/{id}` | Remove run |
@@ -251,7 +255,7 @@ Database `snow_resorts`, extensões `postgis`, `uuid-ossp`, `pgcrypto`. Cada ser
 
 | Chave / canal | Uso |
 |---------------|-----|
-| `location:group:{groupId}` | Posições ao vivo (HASH, TTL 24h) |
+| `location:group:{groupId}` | Posições ao vivo (HASH, TTL 2h) |
 | `location.group.{groupId}` | Pub/Sub para fanout multi-instância |
 | `avatar:{userId}` | Cache read-only de URL de avatar |
 
