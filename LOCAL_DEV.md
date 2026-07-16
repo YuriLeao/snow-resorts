@@ -539,6 +539,7 @@ Com membership no grupo e localização compartilhada no perfil, o app continua 
 - Background: `expo-task-manager` com `pausesUpdatesAutomatically: false`, `activityType: Fitness`, `distanceInterval: 0`, **`deferredUpdatesInterval` ~15 s** (iOS ignora `timeInterval`).
 - Publicação: **STOMP** enquanto a sessão estiver saudável no keep-alive (~30 s Apple); depois **REST** no farewell + em cada wake de CLLocation (`preferRest`, com `beginBackgroundTask` no wake).
 - Overlay no **publisher** (ao desbloquear): `bgWake Xs ok|fail:reason` — se `fail:ensure_sharing_failed` / `no_token` / `no_group`, o wake não publicou.
+- **Descida ao vivo:** usa a **mesma** task de background do grupo (sem segunda sessão nativa). Com o app aberto grava ~1 s; com a tela bloqueada recebe os wakes da task (~5 s se só descida, ~15 s se o grupo também está ativo) e continua as métricas. Ao sair do grupo com uma descida ativa, a task **não** é parada.
 
 **Requisitos:**
 
