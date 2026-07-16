@@ -379,7 +379,7 @@ Com `EXPO_PUBLIC_MOCK_LOCATION=false`, a descida usa o chip GNSS do aparelho (`A
 2. **Derivação em janela** — soma das distâncias dos últimos 2–3 fixes ÷ tempo total, quando `speed` não vem.
 3. **Fallback ponto a ponto** — só se a janela ainda não tiver dados suficientes.
 
-O HUD aplica uma média curta (3 amostras) só para exibição; os pontos gravados usam a velocidade filtrada (Kalman). Precisão melhor ao ar livre na pista; caminhada lenta no iOS pode oscilar se o SO não reportar `speed`.
+O HUD aplica uma média curta (3 amostras) só para exibição; os pontos gravados usam velocidade filtrada (Kalman). Fixes com `horizontalAccuracy` pior que **35 m** são descartados; velocidade do chip é ignorada se accuracy > 20 m. Teto de spike ~**150 km/h**; saltos de posição escalam com Δt para não cortar descidas rápidas com o celular bloqueado. Inclinação: distância mínima ~**3 m**, EMA (α=0.25) no pico/média para um spike GNSS não virar 85°; teto ~**75°**. Em background, todos os fixes do wake entram na descida. **Altitude/desnível em ambiente interno** (escadas) continua limitado pelo GNSS do celular. Precisão melhor ao ar livre na pista.
 
 ---
 
