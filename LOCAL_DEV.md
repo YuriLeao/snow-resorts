@@ -143,6 +143,8 @@ Substitua `192.168.3.18` pelo IP do Mac (`ipconfig getifaddr en0`).
 
 Para **Esqueci minha senha** no celular, crie `snow-resorts-auth-service/.env.local` (copie de `[.env.local.example](snow-resorts-auth-service/.env.local.example)`) com o **mesmo IP** do mobile. O profile `local` carrega esse arquivo automaticamente ao rodar `./mvnw spring-boot:run` — não precisa `export` manual.
 
+Para **foto de perfil** no celular, o `user-service` (profile `local`) já usa o mesmo IP em MinIO (`AVATAR_PUBLIC_BASE_URL` / `S3_ENDPOINT`, default `192.168.3.18:9000`). Se o IP do Mac mudar, exporte esses envs ou ajuste `application-local.yml` e reinicie o user-service.
+
 ### 4. Mobile — build nativo iOS (primeira vez)
 
 ```bash
