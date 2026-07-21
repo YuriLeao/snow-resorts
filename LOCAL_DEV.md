@@ -609,6 +609,19 @@ xcodebuild -downloadPlatform iOS
 
 
 
+## JWT RSA (opcional — multi-serviço / profile não-`local`)
+
+No profile `local`/`test` o auth-service gera uma chave RSA efêmera se `JWT_SECRET` estiver vazio. Para persistir a mesma chave entre restarts (ou usar profile `staging` localmente):
+
+```bash
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jwt-private.pem
+export JWT_SECRET="$(cat jwt-private.pem)"
+```
+
+O valor deve ser PEM PKCS#8 (`-----BEGIN PRIVATE KEY-----`). Em staging/prod o Terraform grava esse PEM em SSM/Secrets Manager como `JWT_SECRET`.
+
+---
+
 ## Ordem resumida (checklist)
 
 - [ ] Docker Desktop rodando

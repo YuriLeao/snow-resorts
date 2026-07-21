@@ -175,6 +175,7 @@ Ao expirar (job ~15 min ou acesso post-expiry), o grupo é dissolvido e as posi�
 - Publicar: `/app/groups/{groupId}/position`
 - Assinar: `/topic/groups/{groupId}`
 - JWT no `CONNECT`; membership validada antes de subscribe
+- **Origin:** `setAllowedOriginPatterns("*")` **somente** nos profiles `local`/`test` (dev/LAN). Em staging/prod a allowlist vem de `snow.security.cors.allowed-origins` — ver checklist de implantação no Terraform README.
 
 **Redis:** HASH `location:group:{groupId}` (TTL 2h, renovado no upsert; `DELETE /position` limpa antes) + Pub/Sub para fanout entre instâncias → STOMP.
 
