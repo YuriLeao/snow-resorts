@@ -46,3 +46,39 @@ alwaysApply: false
 - Cores imperativas (gradientes, Mapbox, `ActivityIndicator`): `colors` e `trailColor()` de `@/theme/colors`.
 - Telas em `app/`: `export default function FooScreen()` — sem wrapper genérico `Screen`; auth usa `AuthScreenLayout`, demais usam `SafeAreaView` / `ScrollView`.
 - Novos componentes compartilhados em `src/components/`; hooks de API em `src/hooks/queries.ts`; contratos REST em `src/api/types.ts`.
+
+## 7. React Hooks (previsibilidade e testabilidade)
+
+### Regras de Hooks (obrigatório)
+
+- Chame hooks **só** no topo de componentes React ou de funções `use*`. Nunca dentro de `if`/`for`/`while`, callbacks, ou depois de `return` antecipado.
+- Early returns de UI (`if (!data) return …`) só **depois** de todos os hooks do componente.
+- Para N queries dinâmicas, use `useQueries` — não `useQuery` dentro de `.map`.
+- `useFocusEffect(useCallback(...))` é o padrão correto do React Navigation; não invente subscribe manual de focus.
+
+### Dependências (`useEffect` / `useMemo` / `useCallback`)
+
+- Inclua todas as deps que o efeito/memo lê. Não silencie `react-hooks/exhaustive-deps` sem justificativa curta no comentário.
+- Prefira **primitivos** nas deps (`lat`, `lng`, `id`) em vez de objetos/arrays que mudam de identidade a cada render.
+- Em `setState` de objetos de posição/viewport, faça bail-out se o valor não mudou: `setX((prev) => prev?.lat === next.lat ? prev : next)`.
+- Constantes estáveis (`fallbackCenter`, defaults) devem ser **module-level** — não recriar arrays/objetos no body e colocá-los em deps.
+- Efeitos mount-only com `[]` são ok quando só usam refs / `setState` / `getState()`; não invente deps só para “satisfazer o linter” se isso re-dispara side effects caros (STOMP, GPS, publish).
+- Handlers usados em efeitos (`onSubmit`, `reset`) devem ser `useCallback` (ou a lógica deve morar dentro do efeito).
+
+### Extração para hooks personalizados
+
+- Telas com muitos `useState`/`useEffect` acoplados (mapa/câmera, form auth, detalhe de grupo) → extrair para `src/hooks/use*.ts` e deixar a screen só com UI.
+- Domínio já existente: manter padrões de `useFriendLocations`, `useDescentTracker`, `useReplayPlayback`, etc. Novos hooks de API ficam em `queries.ts`; hooks de comportamento/domínio em arquivos próprios.
+- Não extrair cedo demais: só quando houver cluster claro (≥3 estados + ≥2 efeitos/handlers que mudam juntos) ou reuso em 2+ telas.
+
+### `useState` vs `useReducer`
+
+- Use `useReducer` (ou máquina explícita) quando **vários estados atualizam juntos** na mesma transição (`FRAME_AT`, `RECENTER_USER`, `FOLLOW_FRIEND`, `USER_PAN`) — tipicamente câmera/follow do mapa, selection mode de listas, download offline com status/progress.
+- Formulários simples (email/senha) podem continuar com `useState`; se houver sync complexo (autofill + confirm password + field keys), preferir um hook/`useReducer` compartilhado.
+- Estado **global/cross-screen** continua em Zustand; `useReducer` é para FSM **local** do componente/hook.
+
+### Anti-padrões a evitar
+
+- Depender de objeto vivo (ex.: `followedFriend`) em `useEffect` e chamar `setState` com objeto novo sempre → loop (“Maximum update depth exceeded”).
+- `set` no Zustand/store a cada refetch sem checar se `id`/dados mudaram.
+- Duplicar a mesma query hook na mesma árvore sem necessidade (ex.: dois `useFriends()` no mesmo componente).
