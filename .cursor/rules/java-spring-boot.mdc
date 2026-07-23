@@ -74,7 +74,7 @@ alwaysApply: false
   - `422 Unprocessable Entity` — semanticamente inválido (quando aplicável)
   - `500 Internal Server Error` — erros não tratados (sem expor stack trace ao cliente)
 - Para erros de validação (`MethodArgumentNotValidException`, `ConstraintViolationException`), inclua lista de erros por campo como propriedade estendida `errors`.
-- Use **SLF4J** com `@Slf4j`; logging parametrizado; nunca `System.out.println()`.
+- Nunca `System.out.println()` — use SLF4J (ver seção 10).
 
 **Exemplo de JSON de erro de validação (padrão esperado):**
 
@@ -156,3 +156,10 @@ public class GlobalExceptionHandler {
 - **Atualização responsável:** Ao corrigir CVE, prefira bump de patch/minor dentro do BOM; overrides manuais em `<dependencyManagement>` só quando o BOM ainda não publicou fix — documente o motivo no PR.
 - **Evite dependências abandonadas:** Não adicione libs sem manutenção recente; prefira alternativas mantidas pelo ecossistema Spring/Java.
 - **Nunca ignore falhas de segurança no CI:** Builds com CVE crítica/alta devem falhar ou exigir exceção explícita e temporária com ticket de remediação.
+
+## 10. Structured Logging & Observability
+
+- **Campos, não prosa solta:** em staging/prod use JSON nativo do Spring Boot (`logging.structured.format.console=logstash`). No código, prefira SLF4J fluent `log.atInfo().addKeyValue(...).log()` ou o helper `StructuredLogger` com campos estáveis: `event`, `outcome`, `reason`, ids de domínio (`user_id`, `run_id`, …). Nunca frases longas sem chave filtrável.
+- **`request_id` de ponta a ponta:** header `X-Trace-Id` → MDC `request_id` (mesmo valor; alias MDC `traceId` para compat). Propagar `X-Trace-Id` em RestClient/WebClient internos.
+- **Logue a decisão:** registre *o que escolheu e por quê* (`event`, `outcome`, `reason`), não só o status HTTP — ex.: `event=login outcome=denied reason=invalid_credentials`.
+- **Nunca logue segredos:** proibido password, access/refresh JWT, reset token, header `Authorization`, dados de cartão. Logar só ids (`user_id`, `jti` se necessário). Tokens de reset só via SMTP/Mailpit, nunca no log.

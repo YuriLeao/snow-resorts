@@ -88,13 +88,13 @@ alwaysApply: false
 - **JWT validado em cada serviço** via `shared/security-lib` (JWKS do auth-service).
 - **LGPD — retenção documentada:** location snapshots TTL 24h; GPS points 90d.
 - **Certificate pinning no mobile** (ACM cert) — documentar rotação.
-- **Correlation ID:** header `X-Trace-Id` propagado ALB → serviços → logs.
+- **Correlation ID:** header `X-Trace-Id` propagado ALB → serviços → MDC `request_id` (alias `traceId`) nos logs.
 
 ## 7. Observabilidade, CI/CD e anti-patterns
 
 **Observabilidade mínima:**
 
-- Logs JSON estruturados → CloudWatch Logs Insights (`traceId`, `userId`, `service`).
+- Logs JSON estruturados → CloudWatch Logs Insights (`request_id`, `traceId`, `user_id`, `service`, `event`, `outcome`, `reason`).
 - Micrometer → CloudWatch: latency p99, WS connections, runs/min.
 - Alarmes: error rate > 1%, RDS CPU > 80%, ALB 5xx > 10/min.
 
