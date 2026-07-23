@@ -82,3 +82,9 @@ alwaysApply: false
 - Depender de objeto vivo (ex.: `followedFriend`) em `useEffect` e chamar `setState` com objeto novo sempre → loop (“Maximum update depth exceeded”).
 - `set` no Zustand/store a cada refetch sem checar se `id`/dados mudaram.
 - Duplicar a mesma query hook na mesma árvore sem necessidade (ex.: dois `useFriends()` no mesmo componente).
+
+## 8. Segurança (input & secrets)
+
+- **Never trust user input:** Valide e sanitize formulários, params de rota e texto livre **antes** de enviar à API ou persistir localmente (tamanho, formato email/UUID, trim). Validação no client é UX — a autoridade continua no backend.
+- **Sem SQL/query cru no client:** Não monte queries locais (SQLite/`db.execute`) concatenando strings com input do usuário; use binds/parâmetros da lib.
+- **Secrets & environment variables:** API keys (Mapbox, etc.), tokens e URLs sensíveis vêm de env/`expo-constants`/EAS secrets — **nunca** hardcode no código nem commitar `.env` / arquivos com segredos reais no GitHub. Tokens de sessão ficam em `expo-secure-store`, não em logs nem em AsyncStorage aberto.

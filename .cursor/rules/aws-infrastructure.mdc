@@ -83,6 +83,7 @@ alwaysApply: false
 
 ## 6. Segurança e compliance
 
+- **Secrets & environment variables:** API keys, DB passwords, JWT secrets e credenciais AWS **nunca** hardcoded em Terraform, scripts, Dockerfiles ou app. Usar Secrets Manager / SSM / CI secrets; `*.tfvars` com valores reais e `.env` fora do Git — **nunca** push para o GitHub.
 - **Nunca** expor `AWS_ACCESS_KEY_ID` / secrets no app React Native ou no repositório.
 - **TLS 1.3** no ALB; RDS e S3 com encryption at rest (KMS).
 - **JWT validado em cada serviço** via `shared/security-lib` (JWKS do auth-service).

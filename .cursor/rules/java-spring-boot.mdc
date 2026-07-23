@@ -47,6 +47,7 @@ alwaysApply: false
 
 ## 4. API Input Validation
 
+- **Never trust user input:** Trate body, query, path, headers e uploads como não confiáveis. Valide e sanitize **antes** de processar, persistir ou repassar a outro serviço.
 - **Valide toda entrada na borda da API:** Aplique anotações Jakarta Validation (`@NotBlank`, `@NotNull`, `@Email`, `@Size`, `@Min`, `@Max`, `@Pattern`, etc.) nos campos dos DTOs de request.
 - **Ative a validação nos controllers:** Use `@Valid` (ou `@Validated`) em `@RequestBody`, `@RequestParam` e `@PathVariable` quando aplicável.
 - **Mensagens de erro claras e específicas:** Defina mensagens customizadas nas anotações (ex.: `@NotBlank(message = "name is required")`) — nunca retorne mensagens genéricas como "invalid input" sem indicar o campo.
@@ -55,6 +56,7 @@ alwaysApply: false
 
 ## 5. Database & Persistence
 
+- **Nunca concatene input em SQL:** Proibido montar queries com string concatenation / interpolação de input do usuário. Use Spring Data JPA, parâmetros nomeados (`:param`), `PreparedStatement` / `JdbcTemplate` com binds, ou JPQL/Criteria com parâmetros — nunca SQL dinâmico com dados crus.
 - **Fetch strategies explícitas:** Defina `FetchType.LAZY` por padrão; use `EAGER` apenas quando justificado e documentado.
 - **Migrations versionadas:** Use Liquibase ou Flyway para evolução de schema; nunca use `spring.jpa.hibernate.ddl-auto=update` em produção.
 - **Transações nos services:** Anote métodos de escrita com `@Transactional`; mantenha transações curtas e no nível de service.
@@ -150,6 +152,7 @@ public class GlobalExceptionHandler {
 
 ## 9. Dependency Management & Security
 
+- **Secrets & environment variables:** API keys, DB passwords, JWT secrets, SMTP credentials, etc. **nunca** hardcode no código, YAML/properties commitados ou exemplos reais. Use env vars, Spring profiles locais não versionados, ou Secrets Manager — e garanta `.env` / `application-local.*` no `.gitignore`. Nunca faça push de segredos para o GitHub.
 - **Versões recentes e compatíveis:** Prefira as versões gerenciadas pelo Spring Boot BOM (`spring-boot-dependencies`) e pelo parent POM do projeto. Alinhe Java, Spring Boot e bibliotecas ao mesmo release train — não misture versões de ecossistemas incompatíveis.
 - **Sem CVEs conhecidas:** Antes de adicionar ou atualizar uma dependência, verifique se a versão escolhida **não possui vulnerabilidades conhecidas** (CVE). Nunca introduza nem mantenha dependências com severidade alta/crítica sem mitigação documentada.
 - **Ferramentas de verificação:** Use `./mvnw dependency:tree` para inspecionar transitivas; valide com OWASP Dependency-Check, GitHub Dependabot, Snyk ou o scanner de segurança do CI antes de merge.
