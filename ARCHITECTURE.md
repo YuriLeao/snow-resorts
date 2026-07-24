@@ -17,7 +17,7 @@ Snow Resorts é uma plataforma de ski tracking e social para resorts de neve. A 
 | `snow-resorts-resort-service` | Catálogo de resorts, geometria PostGIS, reviews |
 | `snow-resorts-location-service` | Grupos ao vivo, posição de amigos, WebSocket |
 | `snow-resorts-activity-service` | Descidas (runs), métricas, leaderboard |
-| `snow-resorts-infra` | Docker local, Terraform AWS, seed |
+| `snow-resorts-infra` | Docker local, Terraform AWS |
 | `snow-resorts-mobile` | App Expo (iOS/Android) |
 
 **Stack backend:** Java 25, Spring Boot 3.5.6, PostgreSQL 16 + PostGIS, Redis, S3/MinIO.
@@ -314,7 +314,7 @@ sequenceDiagram
 
 Microserviços rodam **no host** (`./mvnw spring-boot:run`), não no Docker.
 
-Demo: `demo@snow-resorts.com` / `Password123!` (seed via `make dev`).
+Não há usuário demo pré-seedado — registre via app ou `POST /auth/register`.
 
 ### AWS (Terraform)
 

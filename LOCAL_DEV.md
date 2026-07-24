@@ -197,7 +197,7 @@ cd snow-resorts-infra
 make dev
 ```
 
-Isso sobe Postgres+PostGIS, Redis, MinIO, Mailpit, gateway nginx e executa o seed de dados demo.
+Isso sobe Postgres+PostGIS, Redis, MinIO, Mailpit e o gateway nginx.
 
 Se a saída indicar Postgres na **5433** (porque algo já usa a 5432):
 
@@ -246,18 +246,9 @@ Cada serviço usa o profile `**local**` e conecta no Postgres do Docker.
 
 Se `POSTGRES_PORT=5433`, exporte **antes** de iniciar os serviços no mesmo terminal.
 
-**Reinicie o resort-service** (`snow-resorts-resort-service`) após puxar migrações Flyway novas (ex.: V2–V4 com seeds de resorts). O Spring Boot aplica as migrações só na subida; sem restart, o catálogo no app pode ficar desatualizado mesmo com `make seed`.
+**Reinicie o resort-service** (`snow-resorts-resort-service`) após puxar migrações Flyway novas (ex.: V2–V6 com seeds OSM de resorts/pistas). O Spring Boot aplica as migrações só na subida; sem restart, o catálogo no app pode ficar desatualizado.
 
 **Reinicie o activity-service** após migrações novas (ex.: `V3__drop_run_tracks_s3.sql`).
-
-**Após todos subirem**, reexecute o seed se resorts/perfil demo não aparecerem:
-
-```bash
-cd snow-resorts-infra
-make seed
-```
-
-
 
 ### Passo 3 — App mobile no simulador
 
@@ -387,18 +378,11 @@ O HUD aplica uma média curta (3 amostras) só para exibição; os pontos gravad
 
 
 
-## Login de teste
+## Conta de teste
 
-
-| Campo | Valor                   |
-| ----- | ----------------------- |
-| Email | `demo@snow-resorts.com` |
-| Senha | `Password123!`          |
-
+Não há usuário pré-seedado. Crie uma conta no app (**Registrar**) ou via `POST /auth/register` no gateway `:8080`.
 
 ---
-
-
 
 ## Recuperar senha (Mailpit + redirect)
 
@@ -415,7 +399,7 @@ E-mails de recuperação **não** vão para Gmail/Mail do celular — ficam no *
 
 **Celular físico:** crie `snow-resorts-auth-service/.env.local` com `PASSWORD_RESET_BASE_URL=http://<IP_DO_MAC>:8080/reset-password` (mesmo IP do mobile). Carregado automaticamente no `./mvnw spring-boot:run`. Mailpit: `http://<IP_DO_MAC>:8025`.
 
-**Fluxo:** app → **Esqueci minha senha** → `demo@snow-resorts.com` → Mailpit **no mesmo dispositivo** do app → toque **Reset your password** → redirect HTTP → app em **Redefinir senha** (token preenchido).
+**Fluxo:** app → **Esqueci minha senha** → e-mail da conta que você registrou → Mailpit **no mesmo dispositivo** do app → toque **Reset your password** → redirect HTTP → app em **Redefinir senha** (token preenchido).
 
 **Não funciona:** Mailpit no Chrome do Mac (não abre o app no simulador/celular); colar `snowresorts://...` na barra do navegador; link `localhost` no celular físico.
 
@@ -629,11 +613,10 @@ O valor deve ser PEM PKCS#8 (`-----BEGIN PRIVATE KEY-----`). Em staging/prod o T
 - [ ] `cd snow-resorts-infra && make dev`
 - [ ] `export POSTGRES_PORT=5433` (se o make avisar)
 - [ ] Subir auth, user, resort, location, activity (`./mvnw spring-boot:run`)
-- [ ] `make seed` (se necessário)
 - [ ] `cd snow-resorts-mobile && npm start` (terminal 1)
 - [ ] `npm run ios:sim` ou `npm run ios` (terminal 2)
 - [ ] (Opcional) GPS simulado — terminal 1: `cd snow-resorts-mobile && npm run start:mock-gps`
 - [ ] (Opcional) GPS simulado — terminal 2: `cd snow-resorts-mobile && npm run ios:sim`
-- [ ] Login: `demo@snow-resorts.com` / `Password123!`
+- [ ] Registrar/login via app (não há usuário demo pré-seedado)
 - [ ] (Opcional) Recuperar senha — Mailpit no mesmo device; link HTTP → redirect → app
 - [ ] (Celular físico) `export PASSWORD_RESET_BASE_URL=http://<IP_MAC>:8080/reset-password` antes do auth-service
