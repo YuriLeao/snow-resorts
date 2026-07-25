@@ -2,7 +2,7 @@
 
 Guia passo a passo para subir **toda a aplicação** no Mac: infra Docker, 5 microserviços Java, gateway nginx e app mobile no simulador iOS.
 
-**Arquitetura da plataforma:** [ARCHITECTURE.md](./ARCHITECTURE.md)
+**Arquitetura da plataforma:** [ARCHITECTURE.md](./ARCHITECTURE.md) · **ADRs:** [docs/adr/](./docs/adr/)
 
 Custo: **$0** (tudo roda na sua máquina).
 
@@ -143,7 +143,7 @@ Substitua `192.168.3.18` pelo IP do Mac (`ipconfig getifaddr en0`).
 
 Para **Esqueci minha senha** no celular, crie `snow-resorts-auth-service/.env.local` (copie de `[.env.local.example](snow-resorts-auth-service/.env.local.example)`) com o **mesmo IP** do mobile. O profile `local` carrega esse arquivo automaticamente ao rodar `./mvnw spring-boot:run` — não precisa `export` manual.
 
-Para **foto de perfil** no celular, o `user-service` (profile `local`) já usa o mesmo IP em MinIO (`AVATAR_PUBLIC_BASE_URL` / `S3_ENDPOINT`, default `192.168.3.18:9000`). Se o IP do Mac mudar, exporte esses envs ou ajuste `application-local.yml` e reinicie o user-service.
+Para **foto de perfil** no celular, o bucket MinIO é **privado**; o app usa URLs presignadas (PUT upload / GET só para dono e amigos). O `user-service` (profile `local`) aponta `S3_ENDPOINT` para o IP da LAN (default `192.168.3.18:9000`). Se o IP do Mac mudar, exporte `S3_ENDPOINT` ou ajuste `application-local.yml` e reinicie o user-service.
 
 ### 4. Mobile — build nativo iOS (primeira vez)
 

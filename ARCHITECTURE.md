@@ -20,7 +20,7 @@ Snow Resorts é uma plataforma de ski tracking e social para resorts de neve. A 
 | `snow-resorts-infra` | Docker local, Terraform AWS |
 | `snow-resorts-mobile` | App Expo (iOS/Android) |
 
-**Stack backend:** Java 25, Spring Boot 3.5.6, PostgreSQL 16 + PostGIS, Redis, S3/MinIO.
+**Stack backend:** Java 25, Spring Boot 4.1.0, PostgreSQL 16 + PostGIS, Redis, S3/MinIO.
 
 **Stack mobile:** Expo SDK 56, React Native 0.85, Mapbox GL, STOMP/WebSocket, TanStack Query, Zustand.
 
@@ -150,6 +150,10 @@ Catálogo, geometria espacial e reviews.
 | `GET /resorts/{resortId}/reviews/me` | Review do usuário autenticado |
 | `POST/PUT/DELETE .../reviews` | CRUD de review (autenticado, ownership) |
 
+**APIs internas** (header `X-Internal-Secret`, host-to-host; nginx retorna 404 no gateway):
+
+- `DELETE /resorts/internal/users/{userId}/reviews` — purge de reviews do usuário + recompute de agregados
+
 **PostGIS:** tabelas `trails` e `lifts` com `geometry(LineString, 4326)` e índices GIST. Seeds incluem catálogo mundial + geometria OSM (V6).
 
 **Segurança HTTP:** leitura do catálogo é `permitAll`; mutações usam JWT no controller.
@@ -167,6 +171,10 @@ Grupos ao vivo e compartilhamento de posição entre amigos.
 | `GET /location/groups/{id}/positions` | Snapshot das posições atuais |
 | `POST /location/groups/{id}/position` | Fallback REST (rate limit ~30/min) |
 | `DELETE /location/groups/{id}/position` | Apaga a posição ao vivo do caller (minimização) |
+
+**APIs internas** (header `X-Internal-Secret`, host-to-host; nginx retorna 404 no gateway):
+
+- `DELETE /location/internal/users/{userId}` — sai do grupo ativo se houver (idempotente)
 
 Ao expirar (job ~15 min ou acesso post-expiry), o grupo é dissolvido e as posições Redis/STOMP desse grupo são apagadas.
 
@@ -193,6 +201,12 @@ Tracking de descidas e leaderboard entre amigos.
 | `GET /runs/{id}/replay` | GeoJSON para replay no mapa |
 | `DELETE /runs/{id}` | Remove run |
 | `GET /leaderboard/friends` | Ranking (`period=today\|week\|season`, `friendIds` do client) |
+
+**APIs internas** (header `X-Internal-Secret`, host-to-host; nginx retorna 404 no gateway):
+
+- `DELETE /runs/internal/users/{userId}` — purge de todas as runs do usuário (cascata metrics/GPS)
+
+> Path sob `/runs` (não `/activity/...`): o nginx só faz proxy de `/runs` e `/leaderboard` para o activity-service.
 
 Pontos GPS ficam em Postgres (`activity.gps_points`). Idempotência em memória (MVP).
 
@@ -370,7 +384,7 @@ Swagger na AWS: documentado no Terraform, **não provisionado** ainda (comentado
 
 ### Decisões registradas
 
-Ver [ADR 0001 — Backend foundation](snow-resorts-shared/docs/adr/0001-backend-foundation.md) para decisões de fundação (Java 25, sem Lombok, schema-per-service, JWT RS256, ports & adapters).
+Ver [ADR 0001 — Backend foundation](docs/adr/0001-backend-foundation.md) para decisões de fundação (Java 25, Spring Boot 4.1, sem Lombok, schema-per-service, JWT RS256, hexagonal ports & adapters).
 
 ---
 

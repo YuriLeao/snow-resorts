@@ -4,7 +4,7 @@ This folder is a **workspace container** holding the independent repositories th
 the Snow Resorts platform. Each subfolder is a standalone Git repository with its own
 `pom.xml`/`package.json`, CI/CD workflow and release lifecycle. They are **not** a monorepo.
 
-**Architecture reference (current implementation):** [ARCHITECTURE.md](./ARCHITECTURE.md)
+**Architecture reference (current implementation):** [ARCHITECTURE.md](./ARCHITECTURE.md) · **ADRs:** [docs/adr/](./docs/adr/) · **Docs index:** [docs/README.md](./docs/README.md)
 
 ## Repositories
 

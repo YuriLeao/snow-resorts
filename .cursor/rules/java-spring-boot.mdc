@@ -13,21 +13,46 @@ alwaysApply: false
 - **Antecipe problemas:** Considere edge cases, concorrência, falhas de rede, validação de entrada, segurança (OWASP) e impacto em outros serviços antes de implementar.
 - **Respeite o ecossistema existente:** Leia o código e convenções do projeto antes de propor mudanças; estenda padrões existentes em vez de reinventar abstrações.
 - **Qualidade sobre velocidade superficial:** Prefira a solução correta e testada à solução rápida que acumula dívida técnica — mas evite overengineering desnecessário.
+- **TDD obrigatório:** Sempre escreva (ou atualize) o teste **antes** de implementar ou alterar comportamento de produção. Ciclo Red → Green → Refactor. Proibido entregar feature/bugfix sem teste que falhe primeiro. Ver seção 7.
 - **Comunicação técnica clara:** Quando relevante, justifique decisões não óbvias de forma direta e objetiva.
 
 ## 1. Code Style and Structure
 
 - **Naming conventions:** Classes e interfaces em `PascalCase`; métodos, variáveis e parâmetros em `camelCase`; constantes em `ALL_CAPS`.
 - **Nomenclatura de microserviços (`-service`):** Todo microserviço deve ter o sufixo `-service` no padrão de mercado — aplicado de forma consistente ao nome do repositório (`snow-resorts-auth-service`), ao `artifactId`/`finalName` Maven (`auth-service`), à imagem/serviço ECS e à classe principal (`AuthServiceApplication`). Bibliotecas compartilhadas e infraestrutura **não** usam esse sufixo (`security-lib`, `contracts`, `snow-resorts-infra`).
-- **Organização em camadas:** Separe responsabilidades em `controller`, `service`, `repository`, `entity` e `dto` — cada camada com escopo claro.
-- **Controllers finos:** Delegue lógica de negócio aos services; controllers apenas recebem requisições, validam entrada e retornam respostas HTTP.
-- **DTOs na borda da API:** Nunca exponha entidades JPA diretamente nos endpoints; use DTOs de request/response.
+- **Arquitetura hexagonal (ports & adapters) — obrigatória em todo microserviço e no `security-lib`:**
+  - Pacotes raiz: `adapters`, `application`, `domain`, `infrastructure`, `utils` (nunca misturar responsabilidades).
+  - Layout canônico:
+    ```
+    adapters/
+      inbound/{controllers,dto,filters,realtime}
+      outbound/{entities,repositories,storage,clients,messaging,jwt,notification,redis,…}
+    application/{usecases,service}
+    domain/{model,port}          # port no singular; regras puras no pacote domain se preciso
+    infrastructure/config/       # Properties, SecurityConfig, guards, CORS @Configuration
+      exceptions/                # ApiException hierarchy / handlers locais (se houver)
+    utils/{mappers,…}
+    ```
+  - **`domain`:** `model` (negócio), `port` (interfaces de saída). Sem Spring, JPA, HTTP, Jakarta Validation de API, Redis, S3, `@ConfigurationProperties`. Zero dependência de `adapters`/`infrastructure`/`utils` de infra.
+  - **`application`:** `usecases` (`*UseCase` interfaces) + `service` (`*Service` implementa `*UseCase`). Orquestra ports; não declara controllers, entities JPA, `@ConfigurationProperties`, filters nem `RestClient` concretos.
+  - **`adapters.inbound`:** `controllers`, `dto` (Request/Response HTTP com Bean Validation), `filters`, `realtime` (STOMP/WS — capacidade, não o nome do transporte).
+  - **`adapters.outbound`:** implementações dos ports — `entities` (JPA), `repositories` (Spring Data + `*Adapter`), `storage`, `clients`, etc.
+  - **`infrastructure.config`:** wiring Spring (`@Configuration`, `@ConfigurationProperties`, `SecurityConfig`, guards). Classes só de configuração CORS (ex.: `SnowCorsConfiguration`) ficam aqui; implementações de `CorsConfigurationSource` podem ficar em `adapters.inbound.web`.
+  - **`infrastructure.config.exceptions`:** exceções de API e `@RestControllerAdvice` compartilhados (no `security-lib`: `GlobalExceptionHandler`, `BadRequestException`, …). Não criar `infrastructure.exceptions` irmão de `config`.
+  - **`utils`:** mappers e helpers sem regra de negócio (ex.: `GeometryMapper`, `StructuredLogger` em `security.utils.logging`).
+  - Direção de dependência: `adapters` → `application` → `domain`; `domain` não aponta para fora.
+  - **Proibido:** DTOs HTTP em `domain`; `*Properties` / `@ConfigurationProperties` em `application` ou `domain`; controllers em `application`; entities JPA fora de `adapters.outbound.entities`.
+  - **Shared:** `security-lib` segue o mesmo vocabulário; `contracts` = `com.snowresorts.contracts.events` (eventos de integração, sem forçar hexagonal vazio).
+  - Decisão registrada: `docs/adr/0001-backend-foundation.md` (workspace root).
+- **Controllers finos:** Em `adapters.inbound.controllers`; injetam `*UseCase` (não a classe `*Service`); validam e mapeiam `adapters.inbound.dto` ↔ `domain.model`.
+- **DTOs na borda da API:** Em `adapters.inbound.dto` (nunca em `domain`; nunca expor entities JPA).
+- **Sem Lombok:** construtores explícitos, `record`s, loggers SLF4J manuais (ver ADR 0001).
 - **Imutabilidade quando possível:** Prefira `final` em campos e parâmetros que não mudam após inicialização.
 - **Métodos curtos e focados:** Uma responsabilidade por método; extraia lógica complexa para métodos privados ou classes dedicadas.
 - **Identificadores (UUID):** Todo `id` de entidade, DTO, path parameter e foreign key deve ser `java.util.UUID`. Nunca use `Long`, `Integer` ou `String` genérica como PK. Em JPA: `@Id @GeneratedValue(strategy = GenerationType.UUID) private UUID id;`. Em controllers: `@PathVariable UUID id`.
 - **Formato de datas:** Datas em APIs, DTOs e respostas JSON devem usar o formato **`dd/MM/yyyy`**. Serialize `LocalDate` com `@JsonFormat(pattern = "dd/MM/yyyy")`; valide entradas de data no mesmo padrão com `@DateTimeFormat(pattern = "dd/MM/yyyy")` ou `@Pattern(regexp = "\\d{2}/\\d{2}/\\d{4}")`.
 
-## 2. Java 17/21+ Modern Features
+## 2. Java 25 Modern Features
 
 - **Records:** Use `record` para DTOs imutáveis e value objects simples.
 - **Streams:** Prefira `Stream` API para transformações e filtros em coleções; evite loops imperativos quando a intenção for declarativa.
@@ -38,11 +63,12 @@ alwaysApply: false
 
 ## 3. Spring Boot Best Practices
 
-- **Constructor injection:** Injete dependências via construtor (com `@RequiredArgsConstructor` do Lombok ou construtor explícito); evite `@Autowired` em campos.
-- **DTOs na API:** Separe modelos de domínio/persistência dos contratos HTTP com DTOs dedicados.
-- **`@ConfigurationProperties`:** Externalize configuração tipada em classes `@ConfigurationProperties` em vez de `@Value` espalhado.
-- **Profiles:** Use `@Profile` ou `spring.profiles.active` para separar configurações de dev, test e prod.
-- **Evite lógica no `@SpringBootApplication`:** Mantenha a classe principal mínima; configure beans em classes `@Configuration` dedicadas.
+- **Stack do projeto:** Java **25**, Spring Boot **4.1.x** (`spring-boot-starter-parent`). Preferir starters do Boot 4 (ex.: `spring-boot-starter-webmvc`, `spring-boot-starter-security-oauth2-resource-server`, `spring-boot-starter-flyway`, `spring-boot-starter-jackson`).
+- **Constructor injection:** Injete dependências via construtor explícito; evite `@Autowired` em campos. **Não use Lombok.**
+- **DTOs na API:** Separe modelos de domínio/persistência dos contratos HTTP com DTOs em `adapters.inbound.dto`.
+- **`@ConfigurationProperties`:** Externalize configuração tipada em `infrastructure.config` em vez de `@Value` espalhado.
+- **Profiles:** Use `@Profile` ou `spring.profiles.active` para separar configurações de local, test, staging e prod.
+- **Evite lógica no `@SpringBootApplication`:** Mantenha a classe principal mínima; configure beans em classes `@Configuration` dedicadas em `infrastructure.config`.
 - **Autenticação JWT obrigatória:** Todos os endpoints de negócio exigem `Authorization: Bearer <token>`. Rotas públicas permitidas **somente**: OpenAPI/Swagger, login, refresh de token, recuperação de senha (`forgot-password`/`reset-password`), JWKS (`/.well-known/jwks.json`) e health/info do actuator. Nunca marque catálogos ou leituras (`GET`) como `permitAll()` por conveniência.
 
 ## 4. API Input Validation
@@ -51,7 +77,7 @@ alwaysApply: false
 - **Valide toda entrada na borda da API:** Aplique anotações Jakarta Validation (`@NotBlank`, `@NotNull`, `@Email`, `@Size`, `@Min`, `@Max`, `@Pattern`, etc.) nos campos dos DTOs de request.
 - **Ative a validação nos controllers:** Use `@Valid` (ou `@Validated`) em `@RequestBody`, `@RequestParam` e `@PathVariable` quando aplicável.
 - **Mensagens de erro claras e específicas:** Defina mensagens customizadas nas anotações (ex.: `@NotBlank(message = "name is required")`) — nunca retorne mensagens genéricas como "invalid input" sem indicar o campo.
-- **Validação em camadas:** Validação de formato/regras de entrada nos DTOs; regras de negócio (ex.: recurso inexistente, conflito de estado) nos services, lançando exceções de domínio tratadas pelo handler global.
+- **Validação em camadas:** Validação de formato/regras de entrada nos DTOs (`adapters.inbound.dto`); regras de negócio nos `*Service` / `*UseCase`, lançando exceções de `security-lib` (`infrastructure.config.exceptions`) tratadas pelo `GlobalExceptionHandler`.
 - **Teste validações antes da implementação:** Escreva testes de controller/service que enviem valores inválidos e assertem status HTTP e payload de erro corretos.
 
 ## 5. Database & Persistence
@@ -66,16 +92,17 @@ alwaysApply: false
 
 ## 6. Exception Handling & Error Responses
 
-- Implemente um handler global com `@RestControllerAdvice` para centralizar todas as respostas de erro.
-- Use **RFC 7807 Problem Details** como formato padrão (`Content-Type: application/problem+json`).
-- Utilize `ProblemDetail` do Spring Framework para construir respostas type-safe.
+- **Use o `security-lib`:** o handler global e a hierarquia `ApiException` vivem em `com.snowresorts.security.infrastructure.config.exceptions` (`GlobalExceptionHandler`, `BadRequestException`, `ResourceNotFoundException`, `ConflictException`, etc.). Não reimplemente `@RestControllerAdvice` por serviço sem motivo.
+- Use **RFC 7807 Problem Details** (`Content-Type: application/problem+json` / `ProblemDetail`).
 - Retorne o **HTTP status code correto** para cada tipo de erro:
   - `400 Bad Request` — validação de entrada ou corpo malformado
   - `404 Not Found` — recurso não encontrado
   - `409 Conflict` — conflito de estado/regra de negócio
   - `422 Unprocessable Entity` — semanticamente inválido (quando aplicável)
+  - `429 Too Many Requests` — rate limit
   - `500 Internal Server Error` — erros não tratados (sem expor stack trace ao cliente)
-- Para erros de validação (`MethodArgumentNotValidException`, `ConstraintViolationException`), inclua lista de erros por campo como propriedade estendida `errors`.
+- Para erros de validação, inclua lista de erros por campo como propriedade estendida `errors`.
+- Services lançam subclasses de `ApiException`; controllers não traduzem manualmente para status HTTP.
 - Nunca `System.out.println()` — use SLF4J (ver seção 10).
 
 **Exemplo de JSON de erro de validação (padrão esperado):**
@@ -114,34 +141,19 @@ alwaysApply: false
 }
 ```
 
-**Referência de implementação sugerida:**
+## 7. Test-Driven Development (TDD) — obrigatório
 
-```java
-@RestControllerAdvice
-public class GlobalExceptionHandler {
-
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    ProblemDetail handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-            HttpStatus.BAD_REQUEST, "One or more fields contain invalid values.");
-        problem.setTitle("Validation Failed");
-        problem.setInstance(URI.create(request.getRequestURI()));
-        problem.setProperty("errors", extractFieldErrors(ex));
-        return problem;
-    }
-}
-```
-
-## 7. Test-Driven Development (TDD)
-
-- **Sempre comece pelos testes:** Antes de implementar lógica de negócio, escreva testes que descrevam o comportamento esperado (ciclo Red → Green → Refactor).
-- **Testes definem o contrato, não validam o código existente:** Nunca escreva a implementação primeiro e depois crie testes que apenas espelhem o que o código já faz — isso produz testes tendenciosos que passam sem garantir comportamento correto.
-- **Cubra cenários reais e edge cases:** Inclua casos de sucesso, falha, entradas inválidas e limites antes de codificar a solução.
-- **Teste comportamento, não detalhes de implementação:** Asserts devem verificar resultados e efeitos observáveis (retorno, exceções, interações com dependências), não métodos privados ou estrutura interna.
-- **Mocks com intenção:** Use mocks apenas para isolar dependências externas; não mocke a unidade sob teste.
+- **Sempre TDD:** Para qualquer nova feature, bugfix ou mudança de comportamento em código de produção, **crie ou altere o teste primeiro**, rode-o e confirme o **vermelho** (falha), só então implemente até ficar **verde**, e refatore. Não inverta a ordem.
+- **Ordem fixa do agente:** (1) escrever/ajustar teste → (2) executar e ver falha → (3) implementar o mínimo para passar → (4) refatorar mantendo verde. Não abra implementação de produção no passo (1).
+- **Escopo:** aplica a use cases (`application.service` / `*UseCase`), adapters com lógica, regras de `domain`, validação de API e regressões. Moves/renames puros sem mudança de comportamento e docs/config sem lógica podem só garantir que a suíte existente continue passando.
+- **Testes definem o contrato:** Nunca implemente primeiro e depois escreva testes que apenas espelhem o código — isso produz testes tendenciosos.
+- **Cubra cenários reais e edge cases:** Inclua sucesso, falha, entradas inválidas e limites **nos testes**, antes (ou junto, no Red) da solução.
+- **Teste comportamento, não detalhes de implementação:** Asserts em resultados e efeitos observáveis (retorno, exceções, interações com ports), não métodos privados ou estrutura interna.
+- **Mocks com intenção:** Use mocks só para isolar dependências externas/ports; não mocke a unidade sob teste.
 
 ## 8. Testing Conventions
 
+- **Cobertura mínima 85%:** Todo módulo Java (`security-lib`, `contracts` e cada `*-service`) deve manter **≥ 85% de cobertura de linhas** (JaCoCo `LINE`, goal `check` na fase `test` com `-DskipITs`). Não mergear abaixo disso. Exclusões JaCoCo permitidas só para classes sem lógica: `*Application`, `**/adapters/outbound/entities/**`, `**/adapters/inbound/dto/**`, `**/*Properties.class`. Domínio, use cases, adapters com comportamento, filters, clients e handlers **não** se excluem.
 - **JUnit 5:** Use `@Test`, `@BeforeEach`, `@DisplayName` e assertions de `org.junit.jupiter.api.Assertions`.
 - **Mockito:** Use `@ExtendWith(MockitoExtension.class)`, `@Mock` e `@InjectMocks` para testes unitários de services.
 - **Naming convention:** `methodUnderTest_scenario_expectedResult()` — ex.: `createResort_withBlankName_returnsBadRequest()`.
@@ -153,7 +165,7 @@ public class GlobalExceptionHandler {
 ## 9. Dependency Management & Security
 
 - **Secrets & environment variables:** API keys, DB passwords, JWT secrets, SMTP credentials, etc. **nunca** hardcode no código, YAML/properties commitados ou exemplos reais. Use env vars, Spring profiles locais não versionados, ou Secrets Manager — e garanta `.env` / `application-local.*` no `.gitignore`. Nunca faça push de segredos para o GitHub.
-- **Versões recentes e compatíveis:** Prefira as versões gerenciadas pelo Spring Boot BOM (`spring-boot-dependencies`) e pelo parent POM do projeto. Alinhe Java, Spring Boot e bibliotecas ao mesmo release train — não misture versões de ecossistemas incompatíveis.
+- **Versões recentes e compatíveis:** Parent Spring Boot **4.1.x** / Java **25**. Prefira o BOM do parent; alinhe bibliotecas (springdoc, Testcontainers, etc.) ao mesmo release train — não misture Boot 3 com Boot 4.
 - **Sem CVEs conhecidas:** Antes de adicionar ou atualizar uma dependência, verifique se a versão escolhida **não possui vulnerabilidades conhecidas** (CVE). Nunca introduza nem mantenha dependências com severidade alta/crítica sem mitigação documentada.
 - **Ferramentas de verificação:** Use `./mvnw dependency:tree` para inspecionar transitivas; valide com OWASP Dependency-Check, GitHub Dependabot, Snyk ou o scanner de segurança do CI antes de merge.
 - **Atualização responsável:** Ao corrigir CVE, prefira bump de patch/minor dentro do BOM; overrides manuais em `<dependencyManagement>` só quando o BOM ainda não publicou fix — documente o motivo no PR.
@@ -162,7 +174,7 @@ public class GlobalExceptionHandler {
 
 ## 10. Structured Logging & Observability
 
-- **Campos, não prosa solta:** em staging/prod use JSON nativo do Spring Boot (`logging.structured.format.console=logstash`). No código, prefira SLF4J fluent `log.atInfo().addKeyValue(...).log()` ou o helper `StructuredLogger` com campos estáveis: `event`, `outcome`, `reason`, ids de domínio (`user_id`, `run_id`, …). Nunca frases longas sem chave filtrável.
+- **Campos, não prosa solta:** em staging/prod use JSON nativo do Spring Boot (`logging.structured.format.console=logstash`). No código, prefira SLF4J fluent `log.atInfo().addKeyValue(...).log()` ou `com.snowresorts.security.utils.logging.StructuredLogger` com campos estáveis: `event`, `outcome`, `reason`, ids de domínio (`user_id`, `run_id`, …). Nunca frases longas sem chave filtrável.
 - **`request_id` de ponta a ponta:** header `X-Trace-Id` → MDC `request_id` (mesmo valor; alias MDC `traceId` para compat). Propagar `X-Trace-Id` em RestClient/WebClient internos.
 - **Logue a decisão:** registre *o que escolheu e por quê* (`event`, `outcome`, `reason`), não só o status HTTP — ex.: `event=login outcome=denied reason=invalid_credentials`.
 - **Nunca logue segredos:** proibido password, access/refresh JWT, reset token, header `Authorization`, dados de cartão. Logar só ids (`user_id`, `jti` se necessário). Tokens de reset só via SMTP/Mailpit, nunca no log.
