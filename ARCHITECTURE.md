@@ -350,7 +350,7 @@ Swagger na AWS: documentado no Terraform, **não provisionado** ainda (comentado
 | `snow-resorts-shared` | tag `v*.*.*` | build + publish → GitHub Packages |
 | 5 serviços Java | PR/push `master` | `mvn verify` (Testcontainers) → Docker → ECR → ECS |
 | `snow-resorts-infra` | push `terraform/**` | `fmt` + `validate`; apply manual |
-| `snow-resorts-mobile` | PR/push `master` | `tsc --noEmit`; EAS build manual (`EXPO_TOKEN`) |
+| `snow-resorts-mobile` | PR/push `master` | `tsc` + `lint` + Jest; EAS build manual (`EXPO_TOKEN`); Maestro E2E **local only** |
 
 ---
 

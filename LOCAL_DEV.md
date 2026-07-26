@@ -606,6 +606,77 @@ O valor deve ser PEM PKCS#8 (`-----BEGIN PRIVATE KEY-----`). Em staging/prod o T
 
 ---
 
+## Testes automatizados
+
+### Backend (por serviço)
+
+```bash
+cd snow-resorts-user-service   # ou auth / resort / location / activity
+./mvnw -B verify               # Surefire units + Failsafe *IT (Docker/Testcontainers)
+./mvnw -B test -DskipITs=true  # só unitários
+```
+
+ITs novos cobrem friendship lifecycle + `DELETE /users/me` (MockWebServer), groups join/leave, runs start/append/finish, internal purge com/sem `X-Internal-Secret`, e STOMP realtime no location (`LocationRealtimeIT`).
+
+### Mobile (Jest) — roda no CI do PR e localmente
+
+```bash
+cd snow-resorts-mobile
+npm test                       # ou: npm run test:watch / npm run test:ci
+npm run lint
+npm run typecheck
+```
+
+No **push/PR**, o GitHub Actions do mobile já roda `tsc` + `lint` + Jest. Isso **não** é o mesmo que `expo run:ios` / build nativo local — o build do app não dispara Jest sozinho.
+
+**Antes do commit** (recomendado):
+
+```bash
+cd snow-resorts-mobile && npm run test:ci && npm run lint && npm run typecheck
+# serviço Java alterado:
+cd snow-resorts-user-service && ./mvnw -B test -DskipITs=true   # rápido
+# ou ./mvnw -B verify   # inclui ITs (precisa Docker)
+```
+
+Opcional: hook git local `pre-commit` com esses comandos (não está versionado no repo — configure no seu clone se quiser bloquear commit sem testes).
+
+### Maestro E2E — **somente local** (não roda no CI)
+
+Pré-requisitos:
+
+1. Stack Compose + nginx + serviços Java (`LOCAL_DEV` acima)
+2. App instalado no simulador: `npm run ios:sim` (deixe Metro/app rodando)
+3. CLI Maestro (uma vez no Mac):
+
+```bash
+curl -Ls "https://get.maestro.mobile.dev" | bash
+# opcional no ~/.zshrc:
+export PATH="$HOME/.maestro/bin:$PATH"
+maestro --version
+```
+
+(`npm run test:maestro` já inclui `~/.maestro/bin` no PATH; o erro some depois do install.)
+
+```bash
+cd snow-resorts-mobile
+./.maestro/scripts/seed-test-users.sh   # users + grupo; grava .maestro/.seed-env (incl. MAESTRO_INVITE)
+npm run test:maestro:login              # smoke
+npm run test:maestro                    # suite 01→07 (ordem fixa; delete por último)
+./.maestro/scripts/seed-test-users.sh   # recria users após o 07 apagar a conta
+```
+
+Ordem em `.maestro/config.yaml`: login → profile → friends → group → realtime FG/BG → **delete por último**.  
+`04`/`05`/`06`: create com dismiss de teclado; se falhar, **join** com `MAESTRO_INVITE` do seed.
+
+**Pré-condições:** Metro **8086** + gateway/API. `connect_dev_client` trata o launcher do Expo Dev Client.  
+`01_login` usa `clearState` + `clearKeychain`. UI de grupo no segment **Grupos**. Delete em PT = **Apagar**.
+
+O WARNING `sun.misc.Unsafe` do Maestro/JDK é ruído — ignore.
+
+Flows `05`/`06` usam `map-stomp-status` (`__DEV__` + grupo ativo). Background “Always + lock >40s” = checklist em device físico.
+
+---
+
 ## Ordem resumida (checklist)
 
 - [ ] Docker Desktop rodando
@@ -620,3 +691,5 @@ O valor deve ser PEM PKCS#8 (`-----BEGIN PRIVATE KEY-----`). Em staging/prod o T
 - [ ] Registrar/login via app (não há usuário demo pré-seedado)
 - [ ] (Opcional) Recuperar senha — Mailpit no mesmo device; link HTTP → redirect → app
 - [ ] (Celular físico) `export PASSWORD_RESET_BASE_URL=http://<IP_MAC>:8080/reset-password` antes do auth-service
+- [ ] Antes do commit: `npm run test:ci` (mobile) e/ou `./mvnw test` no serviço Java
+- [ ] (Opcional, local) Maestro: `seed-test-users.sh` + `npm run test:maestro`
