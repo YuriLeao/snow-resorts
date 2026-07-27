@@ -602,7 +602,7 @@ openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jwt-private.pe
 export JWT_SECRET="$(cat jwt-private.pem)"
 ```
 
-O valor deve ser PEM PKCS#8 (`-----BEGIN PRIVATE KEY-----`). Em staging/prod o Terraform grava esse PEM em SSM/Secrets Manager como `JWT_SECRET`.
+O valor deve ser PEM PKCS#8 (`-----BEGIN PRIVATE KEY-----`). Em prod o Terraform grava esse PEM em Secrets Manager como `JWT_SECRET`.
 
 ---
 

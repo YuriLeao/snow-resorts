@@ -24,7 +24,8 @@ alwaysApply: false
 - **1 RDS PostgreSQL:** Schemas separados por serviço — nunca 5 instâncias RDS.
 - **Fargate Spot seletivo:** Apenas para `resort-service` (read-heavy, tolerante a interrupção); auth, location e activity em on-demand.
 - **AWS Budget como primeiro recurso:** Alerta em ~$150/mês (ou R$ equivalente) + alerta crítico em $200.
-- **Ambientes progressivos:** `dev` (t4g.micro, Single-AZ) → `staging` → `prod` (Multi-AZ).
+- **Ambientes:** local Docker (`$0`) → AWS **`prod` apenas** em **`sa-east-1`** (Multi-AZ). Sem staging/dev na AWS no MVP.
+- **Ciclo de teste:** `make tf-prod-up` / `make tf-prod-down` no `snow-resorts-infra` para não deixar o stack always-on.
 
 ## 2. Entry point e integração com React Native
 
@@ -44,7 +45,8 @@ alwaysApply: false
 
 - **WebSocket STOMP via ALB** (`/ws/*`) — **não** API Gateway WebSocket.
 - **Autenticação via auth-service** (JWT + refresh) — **não** Cognito no MVP.
-- **CloudFront** para assets estáticos (map packages, imagens, GeoJSON); API dinâmica direto no ALB.
+- **Região única:** `sa-east-1` (São Paulo) — latência LatAm para API/WebSocket; ACM e ECR na mesma região.
+- **CloudFront** `PriceClass_All` para assets estáticos (map packages, imagens, GeoJSON; edge SA/Chile); API dinâmica direto no ALB.
 - **WAF** na frente do ALB: `AWSManagedRulesCommonRuleSet` + rate limit 2000 req/5min por IP.
 - **Integração mobile:** O app React Native consome o ALB para API dinâmica e CloudFront para assets; não duplicar regras mobile aqui — ver [`react-native-expo.mdc`](react-native-expo.mdc).
 

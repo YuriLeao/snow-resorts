@@ -183,7 +183,7 @@ Ao expirar (job ~15 min ou acesso post-expiry), o grupo é dissolvido e as posi�
 - Publicar: `/app/groups/{groupId}/position`
 - Assinar: `/topic/groups/{groupId}`
 - JWT no `CONNECT`; membership validada antes de subscribe
-- **Origin:** `setAllowedOriginPatterns("*")` **somente** nos profiles `local`/`test` (dev/LAN). Em staging/prod a allowlist vem de `snow.security.cors.allowed-origins` — ver checklist de implantação no Terraform README.
+- **Origin:** `setAllowedOriginPatterns("*")` **somente** nos profiles `local`/`test` (dev/LAN). Em prod a allowlist vem de `snow.security.cors.allowed-origins` — ver checklist de implantação no Terraform README.
 
 **Redis:** HASH `location:group:{groupId}` (TTL 2h, renovado no upsert; `DELETE /position` limpa antes) + Pub/Sub para fanout entre instâncias → STOMP.
 
@@ -334,10 +334,7 @@ Não há usuário demo pré-seedado — registre via app ou `POST /auth/register
 
 Módulos: `vpc`, `rds`, `ecs`, `alb`, `redis`, `s3-cloudfront`, `waf`.
 
-| Ambiente | Forma | Custo estimado |
-|----------|-------|----------------|
-| **staging** | 1 task Fargate consolidada (5 serviços), sem Redis, subnets públicas | ~$42–55/mês |
-| **prod** | 5 tasks Fargate separadas, ElastiCache Redis, NAT, WAF, RDS Multi-AZ | ~$120–200/mês |
+Único ambiente AWS: **`prod`** em **`sa-east-1` (São Paulo)** — 5 tasks Fargate, ElastiCache Redis, NAT, WAF, RDS Multi-AZ, CloudFront `PriceClass_All`. Custo estimado ~**US$165–230/mês** always-on; use `make tf-prod-up` / `make tf-prod-down` para janelas de teste. Local continua `$0` via Docker.
 
 Swagger na AWS: documentado no Terraform, **não provisionado** ainda (comentado nos `routing_rules`).
 
@@ -348,8 +345,8 @@ Swagger na AWS: documentado no Terraform, **não provisionado** ainda (comentado
 | Repo | Trigger | Pipeline |
 |------|---------|----------|
 | `snow-resorts-shared` | tag `v*.*.*` | build + publish → GitHub Packages |
-| 5 serviços Java | PR/push `master` | `mvn verify` (Testcontainers) → Docker → ECR → ECS |
-| `snow-resorts-infra` | push `terraform/**` | `fmt` + `validate`; apply manual |
+| 5 serviços Java | PR/push `master` | `mvn verify` (Testcontainers) → Docker → ECR (`sa-east-1`) → ECS `snow-resorts-prod` |
+| `snow-resorts-infra` | push `terraform/**` | `fmt` + `validate`; apply via workflow_dispatch ou `make tf-prod-up` |
 | `snow-resorts-mobile` | PR/push `master` | `tsc` + `lint` + Jest; EAS build manual (`EXPO_TOKEN`); Maestro E2E **local only** |
 
 ---
@@ -364,7 +361,7 @@ Swagger na AWS: documentado no Terraform, **não provisionado** ainda (comentado
 - Grupos ao vivo + posição em tempo real (Redis + STOMP)
 - Tracking de descidas, métricas, replay, leaderboard entre amigos
 - App mobile end-to-end contra gateway local
-- Infra Docker local + módulos Terraform staging/prod
+- Infra Docker local + módulos Terraform prod (`sa-east-1`)
 - Swagger unificado local
 
 ### 🚧 Schema ou lib existe, app ainda não usa

@@ -61,7 +61,8 @@ train.
 
 ## Consequences
 
-- Local dev is $0 (Docker Compose + JVM). AWS only for staging/prod (owned by the Terraform
-  workstream). Integration tests use Testcontainers (Postgres/PostGIS, Redis) and run in CI.
+- Local dev is $0 (Docker Compose + JVM). AWS only for **prod** in **`sa-east-1`** (owned by the
+  Terraform workstream in `snow-resorts-infra`). Integration tests use Testcontainers
+  (Postgres/PostGIS, Redis) and run in CI.
 - Living platform docs live in the workspace root: [ARCHITECTURE.md](../../ARCHITECTURE.md),
   [LOCAL_DEV.md](../../LOCAL_DEV.md), and this `docs/adr/` tree.
