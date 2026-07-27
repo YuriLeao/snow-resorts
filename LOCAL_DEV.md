@@ -627,7 +627,9 @@ npm run lint
 npm run typecheck
 ```
 
-No **push/PR**, o GitHub Actions do mobile já roda `tsc` + `lint` + Jest. Isso **não** é o mesmo que `expo run:ios` / build nativo local — o build do app não dispara Jest sozinho.
+`npm run test:ci` coleta cobertura em `src/` (exclui `translations.ts`, `src/dev/**`, mock GPS lifecycle, telas/UI em `components`/`theme`/`navigation` — UI fica no Maestro local) e **falha se lines/statements < 85%**, no mesmo critério JaCoCo `LINE` / `COVEREDRATIO` 0.85 dos serviços Java.
+
+No **push/PR**, o GitHub Actions do mobile já roda `tsc` + `lint` + `npm run test:ci`. Isso **não** é o mesmo que `expo run:ios` / build nativo local — o build do app não dispara Jest sozinho.
 
 **Antes do commit** (recomendado):
 
