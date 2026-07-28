@@ -10,14 +10,16 @@ the Snow Resorts platform. Each subfolder is a standalone Git repository with it
 
 | Folder | GitHub repo (`yurileao`) | What it is | CI/CD |
 |--------|--------------------------|------------|-------|
-| `snow-resorts-shared` | `snow-resorts-shared` | Publishable libs (`security-lib`, `contracts`) | Publishes JARs to GitHub Packages on tag `v*` |
-| `snow-resorts-auth-service` | `snow-resorts-auth-service` | auth-service (:8081) | Build/test → ECR → Fargate |
-| `snow-resorts-user-service` | `snow-resorts-user-service` | user-service (:8082, avatars) | Build/test → ECR → Fargate |
-| `snow-resorts-resort-service` | `snow-resorts-resort-service` | resort-service (:8083, PostGIS, reviews) | Build/test → ECR → Fargate |
-| `snow-resorts-location-service` | `snow-resorts-location-service` | location-service (:8084, WebSocket) | Build/test → ECR → Fargate |
-| `snow-resorts-activity-service` | `snow-resorts-activity-service` | activity-service (:8085, descents) | Build/test → ECR → Fargate |
-| `snow-resorts-infra` | `snow-resorts-infra` | Terraform + local Docker dev | Terraform validate/apply |
-| `snow-resorts-mobile` | `snow-resorts-mobile` | Expo app | tsc + EAS |
+| `snow-resorts-shared` | `snow-resorts-shared` | Publishable libs (`security-lib`, `contracts`) | CI: verify + Gitleaks/Trivy/Sonar; publish JARs on tag `v*` |
+| `snow-resorts-auth-service` | `snow-resorts-auth-service` | auth-service (:8081) | Build/test + Gitleaks/Trivy/Sonar → ECR → Fargate |
+| `snow-resorts-user-service` | `snow-resorts-user-service` | user-service (:8082, avatars) | Build/test + Gitleaks/Trivy/Sonar → ECR → Fargate |
+| `snow-resorts-resort-service` | `snow-resorts-resort-service` | resort-service (:8083, PostGIS, reviews) | Build/test + Gitleaks/Trivy/Sonar → ECR → Fargate |
+| `snow-resorts-location-service` | `snow-resorts-location-service` | location-service (:8084, WebSocket) | Build/test + Gitleaks/Trivy/Sonar → ECR → Fargate |
+| `snow-resorts-activity-service` | `snow-resorts-activity-service` | activity-service (:8085, descents) | Build/test + Gitleaks/Trivy/Sonar → ECR → Fargate |
+| `snow-resorts-infra` | `snow-resorts-infra` | Terraform + local Docker dev | tfsec + Gitleaks/Sonar; Terraform validate/apply |
+| `snow-resorts-mobile` | `snow-resorts-mobile` | Expo app | tsc/lint/test + npm audit/Gitleaks/Sonar; EAS on dispatch |
+
+**SonarCloud:** veja [docs/sonar-cloud-setup.md](docs/sonar-cloud-setup.md) (`SONAR_TOKEN` obrigatório em cada repo ou na org).
 
 ## Dependency flow
 

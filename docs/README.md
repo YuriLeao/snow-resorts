@@ -7,6 +7,7 @@ Documentação **viva** da plataforma (polyrepo workspace `snow-resorts`).
 | [../ARCHITECTURE.md](../ARCHITECTURE.md) | Arquitetura implementada |
 | [../LOCAL_DEV.md](../LOCAL_DEV.md) | Guia de desenvolvimento local |
 | [../README.md](../README.md) | Visão dos repositórios e setup |
+| [sonar-cloud-setup.md](sonar-cloud-setup.md) | SonarCloud + scanners no CI (`SONAR_TOKEN`) |
 | [adr/0001-backend-foundation.md](adr/0001-backend-foundation.md) | ADR — fundação do backend |
 
 ## O que fica fora desta pasta
