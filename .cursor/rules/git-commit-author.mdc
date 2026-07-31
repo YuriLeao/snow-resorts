@@ -1,0 +1,32 @@
+---
+description: Always commit as YuriLeao — never use the agent as git author/committer
+alwaysApply: true
+---
+
+# Git commit identity
+
+When creating any git commit in this workspace (parent or nested repos):
+
+1. **Author and committer must be the user**, never the Cursor agent / Composer / any AI identity.
+2. Use this identity on every commit:
+
+   - Name: `YuriLeao`
+   - Email: `ydomingosleao@gmail.com`
+
+3. Prefer env vars for the commit command (do **not** run `git config` to change identity):
+
+```bash
+GIT_AUTHOR_NAME='YuriLeao' \
+GIT_AUTHOR_EMAIL='ydomingosleao@gmail.com' \
+GIT_COMMITTER_NAME='YuriLeao' \
+GIT_COMMITTER_EMAIL='ydomingosleao@gmail.com' \
+git commit -m "$(cat <<'EOF'
+Commit message here.
+
+EOF
+)"
+```
+
+4. Alternatively: `git commit --author='YuriLeao <ydomingosleao@gmail.com>'` **and** the same `GIT_COMMITTER_*` env vars (`--author` alone does not set the committer).
+5. Never add `Co-authored-by:` trailers for Cursor, Composer, or other AI agents unless the user explicitly asks.
+6. Still follow the existing rule: never update `git config` user.name / user.email.
