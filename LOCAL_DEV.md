@@ -366,13 +366,20 @@ Bloqueie o celular 30–60 s e no simulador confira `amigo` no overlay / Redis (
 
 ### Velocidade com GPS real (celular na pista)
 
-Com `EXPO_PUBLIC_MOCK_LOCATION=false`, a descida usa o chip GNSS do aparelho (`Accuracy.BestForNavigation`, updates a cada **1 s**). A velocidade segue esta ordem:
+Com `EXPO_PUBLIC_MOCK_LOCATION=false`, a descida usa o chip GNSS do aparelho (`Accuracy.BestForNavigation`, updates a cada **1 s**) e, quando disponível, o **barômetro** (`expo-sensors`) para altitude relativa calibrada no início da descida. A velocidade segue esta ordem:
 
 1. **`coords.speed` do SO** (m/s) — quando o chip envia valor válido (mais preciso).
 2. **Derivação em janela** — soma das distâncias dos últimos 2–3 fixes ÷ tempo total, quando `speed` não vem.
 3. **Fallback ponto a ponto** — só se a janela ainda não tiver dados suficientes.
 
-O HUD aplica uma média curta (3 amostras) só para exibição; os pontos gravados usam velocidade filtrada (Kalman). Fixes com `horizontalAccuracy` pior que **35 m** são descartados; velocidade do chip é ignorada se accuracy > 20 m. Teto de spike ~**150 km/h**; saltos de posição escalam com Δt para não cortar descidas rápidas com o celular bloqueado. Inclinação: distância mínima ~**3 m**, EMA (α=0.25) no pico/média para um spike GNSS não virar 85°; teto ~**75°**. Em background, todos os fixes do wake entram na descida. **Altitude/desnível em ambiente interno** (escadas) continua limitado pelo GNSS do celular. Precisão melhor ao ar livre na pista.
+O HUD mostra **estimativa ao vivo** (média curta de 3 amostras para velocidade). As **métricas finais** (distância, desnível, velocidade média) são calculadas de forma **autoritativa no activity-service** no `POST /runs/{id}/finish`, incluindo:
+
+- **Distância híbrida** — `matched_distance_m` (snap na pista via geometria do resort) como principal; fallback para `gps_distance_m`.
+- **Tempo em movimento** — segmentos com velocidade ≥ ~1,5 m/s entram no avg speed.
+- **Desnível** — soma de quedas ≥ 3 m (estilo Strava), não max−min.
+- **Spike filter cross-batch** — saltos entre batches PATCH são rejeitados no backend.
+
+Cada ponto enviado inclui `horizontalAccuracyM` e `altitudeSource` (`baro` | `gnss`). Fixes com accuracy pior que **35 m** são descartados no mobile e no backend. Velocidade filtrada (Kalman) alimenta o HUD; o backend recalcula tudo a partir dos pontos persistidos.
 
 ---
 
