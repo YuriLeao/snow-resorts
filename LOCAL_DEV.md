@@ -766,16 +766,37 @@ npx eas-cli env:create --name RNMAPBOX_MAPS_DOWNLOAD_TOKEN --value 'sk....' --en
 
 ### C — Política de privacidade (obrigatória na review)
 
-1. Publique uma página HTTPS acessível, ex.: `https://app.snow-resorts.com/privacy`.
-2. Conteúdo mínimo: GPS (foreground + background), compartilhamento com amigos/grupo, fotos/avatar, conta, exclusão de dados (LGPD), contato de suporte.
-3. Guarde a URL — vai no App Store Connect → Privacy Policy URL.
+**Onde fica (correto):** S3 + CloudFront — bucket `app-site`, arquivos em `snow-resorts-infra/static/app-site/`.
+
+| Ambiente | URL |
+|----------|-----|
+| **Prod (alvo App Store)** | `https://app.snow-resorts.com/privacy` |
+| **Local (nginx)** | `http://localhost:8080/privacy` |
+
+**Deploy:**
+
+1. `make tf-prod-up` (ou apply) — cria bucket `app-site` + CloudFront.
+2. DNS: CNAME `app.snow-resorts.com` → domínio CloudFront (`terraform output cloudfront_domain_names`).
+3. `cd snow-resorts-infra && make sync-app-site`
+
+Não serve a política pelo auth-service / ALB da API — HTML estático não pertence ao backend Java.
+
+Conteúdo: `static/app-site/privacy/index.html` (GPS, amigos/grupo, avatar, LGPD, `suporte@snow-resorts.com`).
 
 ### D — Material da loja (pode preparar agora)
 
-- Screenshots no simulador iPhone **6.7"** (obrigatório) e 6.5"
-- Nome, subtítulo, descrição (PT)
-- Conta demo para o revisor (email + senha que funcionem em **prod**)
-- Texto de review notes: por que o app pede localização **Always** (gravação de descida + compartilhamento em grupo)
+**Feito no repo** (`snow-resorts-mobile/support/app-store/`):
+
+| Arquivo | Conteúdo |
+|---------|----------|
+| `LISTING.md` | Nome, subtítulo, descrição PT, keywords |
+| `REVIEW_NOTES.md` | Notas para o revisor (EN + PT) |
+| `APP_PRIVACY.md` | Rascunho do questionário App Privacy |
+| `SCREENSHOTS.md` | Guia de capturas 6.7" / 6.5" |
+
+**Conta demo:** rode `./scripts/seed-app-store-review-account.sh` — cria `review@snow-resorts.com` na API prod e grava senha em `.app-store-review.env` (gitignored). Cole usuário/senha no App Store Connect → App Review Information.
+
+**Screenshots:** siga `SCREENSHOTS.md` no simulador (Cmd+S) — imagens não ficam no repo.
 
 ### E — Depois da Apple aprovar o Developer Program
 
