@@ -702,3 +702,108 @@ Flows `05`/`06` usam `map-stomp-status` (`__DEV__` + grupo ativo). Background �
 - [ ] (Celular físico) `export PASSWORD_RESET_BASE_URL=http://<IP_MAC>:8080/reset-password` antes do auth-service
 - [ ] Antes do commit: `npm run test:ci` (mobile) e/ou `./mvnw test` no serviço Java
 - [ ] (Opcional, local) Maestro: `seed-test-users.sh` + `npm run test:maestro`
+
+---
+
+## App Store iOS checklist (enquanto espera Apple Developer)
+
+Escopo atual: **só iOS**. Android fica para depois.
+
+### O que já está no repo
+
+- [`eas.json`](snow-resorts-mobile/eas.json) — profiles `preview` (API local / IP Mac) e `production` (api.snow-resorts.com)
+- CI: `workflow_dispatch` → `eas build --platform ios`
+- `.env.local` deve apontar para o gateway local (não para prod)
+
+Se o IP do Mac mudar, atualize **os dois**: `.env.local` e o bloco `env` de `preview` em `eas.json`.
+
+### A — Conta Expo + token GitHub (você)
+
+1. Abra [https://expo.dev](https://expo.dev) e entre com GitHub.
+2. No Mac, no repo mobile:
+   ```bash
+   cd snow-resorts-mobile
+   npx eas-cli login
+   npx eas-cli init
+   ```
+   Confirme o projeto (slug `snow-resorts`). O comando grava `extra.eas.projectId` no `app.json` — **commite** essa alteração.
+3. Gere um token: Expo → Account settings → Access tokens → Create token (nome ex.: `github-actions`).
+4. No GitHub do repo `snow-resorts-mobile`: **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `EXPO_TOKEN`
+   - Value: o token criado
+
+### B — Variáveis EAS (environment `production`)
+
+No [dashboard Expo](https://expo.dev) → projeto → **Environment variables**, environment **production**:
+
+| Nome | Sensível? | Valor |
+|------|-----------|--------|
+| `EXPO_PUBLIC_MAPBOX_TOKEN` | pode ser público | mesmo token público do `.env` local |
+| `EXPO_PUBLIC_SSL_PIN_SHA256` | não secreto, mas obrigatório | pin SPKI (comando abaixo) |
+| `RNMAPBOX_MAPS_DOWNLOAD_TOKEN` | **sim** (secret) | token secret Mapbox (download SDK) |
+
+Gerar o pin SSL:
+
+```bash
+openssl s_client -connect api.snow-resorts.com:443 -servername api.snow-resorts.com </dev/null 2>/dev/null \
+  | openssl x509 -pubkey -noout \
+  | openssl pkey -pubin -outform der \
+  | openssl dgst -sha256 -binary | openssl base64
+```
+
+Cole a linha base64 em `EXPO_PUBLIC_SSL_PIN_SHA256` (pode ter vários pins separados por vírgula — útil na rotação de certificado).
+
+**Não** configure `EXPO_PUBLIC_MOCK_LOCATION` no environment production.
+
+CLI alternativa:
+
+```bash
+cd snow-resorts-mobile
+npx eas-cli env:create --name EXPO_PUBLIC_MAPBOX_TOKEN --value 'pk....' --environment production --visibility plaintext
+npx eas-cli env:create --name EXPO_PUBLIC_SSL_PIN_SHA256 --value 'BASE64...' --environment production --visibility plaintext
+npx eas-cli env:create --name RNMAPBOX_MAPS_DOWNLOAD_TOKEN --value 'sk....' --environment production --visibility secret
+```
+
+### C — Política de privacidade (obrigatória na review)
+
+1. Publique uma página HTTPS acessível, ex.: `https://app.snow-resorts.com/privacy`.
+2. Conteúdo mínimo: GPS (foreground + background), compartilhamento com amigos/grupo, fotos/avatar, conta, exclusão de dados (LGPD), contato de suporte.
+3. Guarde a URL — vai no App Store Connect → Privacy Policy URL.
+
+### D — Material da loja (pode preparar agora)
+
+- Screenshots no simulador iPhone **6.7"** (obrigatório) e 6.5"
+- Nome, subtítulo, descrição (PT)
+- Conta demo para o revisor (email + senha que funcionem em **prod**)
+- Texto de review notes: por que o app pede localização **Always** (gravação de descida + compartilhamento em grupo)
+
+### E — Depois da Apple aprovar o Developer Program
+
+1. [App Store Connect](https://appstoreconnect.apple.com) → **My Apps → +** → name **Snow Resorts**, bundle `com.snowresorts.app`.
+2. Anote **Apple ID** (email), **Team ID**, **App Store Connect App ID** (número).
+3. Credenciais de assinatura:
+   ```bash
+   cd snow-resorts-mobile
+   npx eas-cli credentials -p ios
+   ```
+   Deixe o EAS criar certificado + provisioning (recomendado).
+4. Build produção:
+   ```bash
+   npx eas-cli build --profile production --platform ios
+   ```
+5. Submit / TestFlight:
+   ```bash
+   npx eas-cli submit --profile production --platform ios
+   ```
+   Ou: GitHub → Actions → **mobile CI** → Run workflow → profile `production`.
+6. Preencha metadados + privacy URL + App Privacy questionnaire → envie para review.
+
+### Preview vs production (lembrete)
+
+```bash
+# iPhone na mesma Wi-Fi do Mac, backend Docker local
+npx eas-cli build --profile preview --platform ios
+
+# Aponta para api.snow-resorts.com (loja / TestFlight)
+npx eas-cli build --profile production --platform ios
+```
