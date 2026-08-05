@@ -4,4 +4,7 @@
 .expo/
 .idea/
 .vscode/
+.local/
 security-audit/
+scripts/start-java-services.sh
+scripts/stop-java-services.sh
