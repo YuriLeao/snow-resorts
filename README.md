@@ -4,7 +4,7 @@ This folder is a **workspace container** holding the independent repositories th
 the Snow Resorts platform. Each subfolder is a standalone Git repository with its own
 `pom.xml`/`package.json`, CI/CD workflow and release lifecycle. They are **not** a monorepo.
 
-**Architecture reference (current implementation):** [ARCHITECTURE.md](./ARCHITECTURE.md) · **ADRs:** [docs/adr/](./docs/adr/) · **Docs index:** [docs/README.md](./docs/README.md)
+**Architecture reference (current implementation):** [ARCHITECTURE.md](./ARCHITECTURE.md) · **Docs index:** [docs/README.md](./docs/README.md)
 
 ## Repositories
 
@@ -19,7 +19,7 @@ the Snow Resorts platform. Each subfolder is a standalone Git repository with it
 | `snow-resorts-infra` | `snow-resorts-infra` | Terraform + local Docker dev | tfsec + Gitleaks/Sonar; Terraform validate/apply |
 | `snow-resorts-mobile` | `snow-resorts-mobile` | Expo app | tsc/lint/test + npm audit/Gitleaks/Sonar; EAS on dispatch |
 
-**SonarCloud:** veja [docs/sonar-cloud-setup.md](docs/sonar-cloud-setup.md) (`SONAR_TOKEN` obrigatório em cada repo ou na org).
+**SonarCloud:** veja [docs/README.md](docs/README.md) (`SONAR_TOKEN` obrigatório em cada repo ou na org).
 
 ## Dependency flow
 

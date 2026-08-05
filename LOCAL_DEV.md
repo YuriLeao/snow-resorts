@@ -2,7 +2,7 @@
 
 Guia passo a passo para subir **toda a aplicação** no Mac: infra Docker, 5 microserviços Java, gateway nginx e app mobile no simulador iOS.
 
-**Arquitetura da plataforma:** [ARCHITECTURE.md](./ARCHITECTURE.md) · **ADRs:** [docs/adr/](./docs/adr/)
+**Arquitetura da plataforma:** [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 Custo: **$0** (tudo roda na sua máquina).
 
@@ -783,20 +783,127 @@ Não serve a política pelo auth-service / ALB da API — HTML estático não pe
 
 Conteúdo: `static/app-site/privacy/index.html` (GPS, amigos/grupo, avatar, LGPD, `suporte@snow-resorts.com`).
 
-### D — Material da loja (pode preparar agora)
+### D — App Store Connect (metadados e privacidade)
 
-**Feito no repo** (`snow-resorts-mobile/support/app-store/`):
+#### Onde fica cada campo no ASC
 
-| Arquivo | Conteúdo |
-|---------|----------|
-| `LISTING.md` | Nome, subtítulo, descrição PT, keywords |
-| `REVIEW_NOTES.md` | Notas para o revisor (EN + PT) |
-| `APP_PRIVACY.md` | Rascunho do questionário App Privacy |
-| `SCREENSHOTS.md` | Guia de capturas 6.7" / 6.5" |
+| Campo | Onde |
+|-------|------|
+| Nome, subtítulo, categorias, direitos de conteúdo | **Informações do app** |
+| URL privacidade + questionário App Privacy | **Privacidade do app** |
+| URL suporte, descrição, keywords, screenshots | **Versão 1.0** (Distribuição) |
+| Conta demo + notas | **Revisão de apps** (menu Geral) |
 
-**Conta demo:** rode `./scripts/seed-app-store-review-account.sh` — cria `review@snow-resorts.com` na API prod e grava senha em `.app-store-review.env` (gitignored). Cole usuário/senha no App Store Connect → App Review Information.
+**Bundle ID** (`com.snowresorts.app`) — definido na criação do app, não editável depois.
 
-**Screenshots:** siga `SCREENSHOTS.md` no simulador (Cmd+S) — imagens não ficam no repo.
+#### Textos da loja (PT-BR)
+
+| Campo | Valor |
+|-------|-------|
+| Nome | Snow Resorts |
+| Subtítulo (30 chars) | GPS, descidas e amigos na neve |
+| SKU | `snow-resorts-ios` |
+| Categoria primária | Esportes |
+| Categoria secundária | Viagens (opcional) |
+| URL suporte | `https://app.snow-resorts.com/privacy` (HTTPS obrigatório) |
+| URL privacidade | `https://app.snow-resorts.com/privacy` |
+| Copyright | ex. `2026 Yuri Leao` |
+| O que há de novo | Lançamento inicial do Snow Resorts. |
+
+**Descrição:**
+
+```
+Snow Resorts acompanha suas descidas na montanha, mostra resorts no mapa e conecta você aos amigos na neve.
+
+• Gravação automática de descidas com GPS — distância, desnível e métricas da corrida
+• Mapa com resorts, trilhas e posição ao vivo (quando você compartilha)
+• Amigos: estatísticas e localização conforme suas configurações de privacidade
+• Grupos na montanha para ver onde está cada um do grupo
+• Mapas offline por resort para usar sem sinal
+• Perfil com avatar, username e sincronização na nuvem
+
+O app pede localização “Sempre” para registrar descidas com o iPhone no bolso e, opcionalmente, compartilhar posição com o grupo. Você controla o que amigos veem em Perfil → Privacidade.
+
+Requer conta gratuita. Funciona em resorts cadastrados na plataforma.
+```
+
+**Keywords:** `ski,snowboard,neve,descida,resort,montanha,GPS,amigos,grupo,mapa`
+
+**Texto promocional (opcional):** `Grave descidas, veja amigos no mapa e baixe resorts offline. Feito para quem vive a montanha.`
+
+#### Direitos de conteúdo e EULA
+
+- **Direitos de conteúdo:** Sim (Mapbox, avatares, dados de resorts) → Sim, possuo os direitos.
+- **Contrato de licença (EULA):** deixe o **padrão da Apple** — não precisa EULA customizado.
+- **Classificação etária:** questionário → esperado **4+**; marque localização em background e UGC (avatar).
+
+#### App Privacy (questionário)
+
+**Tracking:** Não.
+
+**Tipos de dados a marcar** (todos: vinculado ao usuário = Sim, tracking = Não, finalidade = Funcionalidade do app):
+
+| Categoria | Observação |
+|-----------|------------|
+| E-mail | Login obrigatório |
+| Nome (display name) | Perfil, amigos |
+| Fotos (avatar) | Opcional para o usuário |
+| Localização precisa | Background sim (descidas + grupo) |
+| ID do usuário | UUID interno |
+
+**Não marcar:** Diagnóstico (crash/performance), Dados de uso / Interação com produto, financeiro, HealthKit, contatos, publicidade.
+
+#### Revisão de apps
+
+**Conta demo** (API prod — rode antes):
+
+```bash
+cd snow-resorts-mobile
+./scripts/seed-app-store-review-account.sh
+```
+
+| Campo | Valor |
+|-------|-------|
+| Sign-in required | Yes |
+| Username | `review@snow-resorts.com` |
+| Password | `.app-store-review.env` (gitignored) |
+
+**Notas para o revisor (EN):**
+
+```
+Snow Resorts is a ski/snowboard companion app for recording GPS descents, viewing resorts on a map, and optional live location sharing with friends/groups.
+
+Why we request "Always" location:
+1) To record a full descent while the phone is in a pocket / screen locked (background GPS track).
+2) To share live position with other members of a user-created group on the mountain.
+
+The user can restrict sharing in Profile → Privacy (stats/location: Friends or Nobody) and can limit iOS permission to "While Using the App" (background recording may be incomplete).
+
+Test account (production API):
+Username: review@snow-resorts.com
+Password: (see credentials in App Store Connect form)
+
+How to test:
+1) Log in with the test account.
+2) Open Map tab — resorts and map should load.
+3) Profile tab shows privacy toggles and account deletion.
+4) Location permission prompts appear when starting a descent or joining a group with sharing enabled.
+
+No special hardware required. Mock GPS is disabled in production builds.
+```
+
+#### Screenshots
+
+| Dispositivo | Resolução | Simulador |
+|-------------|-----------|-----------|
+| 6.7" (obrigatório) | 1290 × 2796 | iPhone 16 Pro Max |
+| 6.5" (recomendado) | 1284 × 2778 | iPhone 14 Plus |
+
+Telas sugeridas (3–6): Mapa → Descidas → Amigos → Perfil → Resorts. Simulador: **Cmd+S** ou `xcrun simctl io booted screenshot ~/Desktop/nome.png`. Prints em inglês são OK com ficha em PT-BR.
+
+**Universal Links:** publique `apple-app-site-association` e `assetlinks.json` em `https://app.snow-resorts.com/.well-known/` (via bucket `app-site`; substitua `TEAMID` pelo Apple Team ID).
+
+**Conta demo:** credenciais em `.app-store-review.env` após o script acima.
 
 ### E — Depois da Apple aprovar o Developer Program
 

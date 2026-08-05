@@ -43,10 +43,10 @@ alwaysApply: false
   - Direção de dependência: `adapters` → `application` → `domain`; `domain` não aponta para fora.
   - **Proibido:** DTOs HTTP em `domain`; `*Properties` / `@ConfigurationProperties` em `application` ou `domain`; controllers em `application`; entities JPA fora de `adapters.outbound.entities`.
   - **Shared:** `security-lib` segue o mesmo vocabulário; `contracts` = `com.snowresorts.contracts.events` (eventos de integração, sem forçar hexagonal vazio).
-  - Decisão registrada: `docs/adr/0001-backend-foundation.md` (workspace root).
+  - Decisões de fundação: [ARCHITECTURE.md](../../ARCHITECTURE.md) (seção *Decisões de fundação*).
 - **Controllers finos:** Em `adapters.inbound.controllers`; injetam `*UseCase` (não a classe `*Service`); validam e mapeiam `adapters.inbound.dto` ↔ `domain.model`.
 - **DTOs na borda da API:** Em `adapters.inbound.dto` (nunca em `domain`; nunca expor entities JPA).
-- **Sem Lombok:** construtores explícitos, `record`s, loggers SLF4J manuais (ver ADR 0001).
+- **Sem Lombok:** construtores explícitos, `record`s, loggers SLF4J manuais (ver ARCHITECTURE.md).
 - **Imutabilidade quando possível:** Prefira `final` em campos e parâmetros que não mudam após inicialização.
 - **Métodos curtos e focados:** Uma responsabilidade por método; extraia lógica complexa para métodos privados ou classes dedicadas.
 - **Identificadores (UUID):** Todo `id` de entidade, DTO, path parameter e foreign key deve ser `java.util.UUID`. Nunca use `Long`, `Integer` ou `String` genérica como PK. Em JPA: `@Id @GeneratedValue(strategy = GenerationType.UUID) private UUID id;`. Em controllers: `@PathVariable UUID id`.
