@@ -366,13 +366,20 @@ Bloqueie o celular 30–60 s e no simulador confira `amigo` no overlay / Redis (
 
 ### Velocidade com GPS real (celular na pista)
 
-Com `EXPO_PUBLIC_MOCK_LOCATION=false`, a descida usa o chip GNSS do aparelho (`Accuracy.BestForNavigation`, updates a cada **1 s**). A velocidade segue esta ordem:
+Com `EXPO_PUBLIC_MOCK_LOCATION=false`, a descida usa o chip GNSS do aparelho (`Accuracy.BestForNavigation`, updates a cada **1 s**) e, quando disponível, o **barômetro** (`expo-sensors`) para altitude relativa calibrada no início da descida. A velocidade segue esta ordem:
 
 1. **`coords.speed` do SO** (m/s) — quando o chip envia valor válido (mais preciso).
 2. **Derivação em janela** — soma das distâncias dos últimos 2–3 fixes ÷ tempo total, quando `speed` não vem.
 3. **Fallback ponto a ponto** — só se a janela ainda não tiver dados suficientes.
 
-O HUD aplica uma média curta (3 amostras) só para exibição; os pontos gravados usam velocidade filtrada (Kalman). Fixes com `horizontalAccuracy` pior que **35 m** são descartados; velocidade do chip é ignorada se accuracy > 20 m. Teto de spike ~**150 km/h**; saltos de posição escalam com Δt para não cortar descidas rápidas com o celular bloqueado. Inclinação: distância mínima ~**3 m**, EMA (α=0.25) no pico/média para um spike GNSS não virar 85°; teto ~**75°**. Em background, todos os fixes do wake entram na descida. **Altitude/desnível em ambiente interno** (escadas) continua limitado pelo GNSS do celular. Precisão melhor ao ar livre na pista.
+O HUD mostra **estimativa ao vivo** (média curta de 3 amostras para velocidade). As **métricas finais** (distância, desnível, velocidade média) são calculadas de forma **autoritativa no activity-service** no `POST /runs/{id}/finish`, incluindo:
+
+- **Distância híbrida** — `matched_distance_m` (snap na pista via geometria do resort) como principal; fallback para `gps_distance_m`.
+- **Tempo em movimento** — segmentos com velocidade ≥ ~1,5 m/s entram no avg speed.
+- **Desnível** — soma de quedas ≥ 3 m (estilo Strava), não max−min.
+- **Spike filter cross-batch** — saltos entre batches PATCH são rejeitados no backend.
+
+Cada ponto enviado inclui `horizontalAccuracyM` e `altitudeSource` (`baro` | `gnss`). Fixes com accuracy pior que **35 m** são descartados no mobile e no backend. Velocidade filtrada (Kalman) alimenta o HUD; o backend recalcula tudo a partir dos pontos persistidos.
 
 ---
 
@@ -695,3 +702,129 @@ Flows `05`/`06` usam `map-stomp-status` (`__DEV__` + grupo ativo). Background �
 - [ ] (Celular físico) `export PASSWORD_RESET_BASE_URL=http://<IP_MAC>:8080/reset-password` antes do auth-service
 - [ ] Antes do commit: `npm run test:ci` (mobile) e/ou `./mvnw test` no serviço Java
 - [ ] (Opcional, local) Maestro: `seed-test-users.sh` + `npm run test:maestro`
+
+---
+
+## App Store iOS checklist (enquanto espera Apple Developer)
+
+Escopo atual: **só iOS**. Android fica para depois.
+
+### O que já está no repo
+
+- [`eas.json`](snow-resorts-mobile/eas.json) — profiles `preview` (API local / IP Mac) e `production` (api.snow-resorts.com)
+- CI: `workflow_dispatch` → `eas build --platform ios`
+- `.env.local` deve apontar para o gateway local (não para prod)
+
+Se o IP do Mac mudar, atualize **os dois**: `.env.local` e o bloco `env` de `preview` em `eas.json`.
+
+### A — Conta Expo + token GitHub (você)
+
+1. Abra [https://expo.dev](https://expo.dev) e entre com GitHub.
+2. No Mac, no repo mobile:
+   ```bash
+   cd snow-resorts-mobile
+   npx eas-cli login
+   npx eas-cli init
+   ```
+   Confirme o projeto (slug `snow-resorts`). O comando grava `extra.eas.projectId` no `app.json` — **commite** essa alteração.
+3. Gere um token: Expo → Account settings → Access tokens → Create token (nome ex.: `github-actions`).
+4. No GitHub do repo `snow-resorts-mobile`: **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `EXPO_TOKEN`
+   - Value: o token criado
+
+### B — Variáveis EAS (environment `production`)
+
+No [dashboard Expo](https://expo.dev) → projeto → **Environment variables**, environment **production**:
+
+| Nome | Sensível? | Valor |
+|------|-----------|--------|
+| `EXPO_PUBLIC_MAPBOX_TOKEN` | pode ser público | mesmo token público do `.env` local |
+| `EXPO_PUBLIC_SSL_PIN_SHA256` | não secreto, mas obrigatório | pin SPKI (comando abaixo) |
+| `RNMAPBOX_MAPS_DOWNLOAD_TOKEN` | **sim** (secret) | token secret Mapbox (download SDK) |
+
+Gerar o pin SSL:
+
+```bash
+openssl s_client -connect api.snow-resorts.com:443 -servername api.snow-resorts.com </dev/null 2>/dev/null \
+  | openssl x509 -pubkey -noout \
+  | openssl pkey -pubin -outform der \
+  | openssl dgst -sha256 -binary | openssl base64
+```
+
+Cole a linha base64 em `EXPO_PUBLIC_SSL_PIN_SHA256` (pode ter vários pins separados por vírgula — útil na rotação de certificado).
+
+**Não** configure `EXPO_PUBLIC_MOCK_LOCATION` no environment production.
+
+CLI alternativa:
+
+```bash
+cd snow-resorts-mobile
+npx eas-cli env:create --name EXPO_PUBLIC_MAPBOX_TOKEN --value 'pk....' --environment production --visibility plaintext
+npx eas-cli env:create --name EXPO_PUBLIC_SSL_PIN_SHA256 --value 'BASE64...' --environment production --visibility plaintext
+npx eas-cli env:create --name RNMAPBOX_MAPS_DOWNLOAD_TOKEN --value 'sk....' --environment production --visibility secret
+```
+
+### C — Política de privacidade (obrigatória na review)
+
+**Onde fica (correto):** S3 + CloudFront — bucket `app-site`, arquivos em `snow-resorts-infra/static/app-site/`.
+
+| Ambiente | URL |
+|----------|-----|
+| **Prod (alvo App Store)** | `https://app.snow-resorts.com/privacy` |
+| **Local (nginx)** | `http://localhost:8080/privacy` |
+
+**Deploy:**
+
+1. `make tf-prod-up` (ou apply) — cria bucket `app-site` + CloudFront.
+2. DNS: CNAME `app.snow-resorts.com` → domínio CloudFront (`terraform output cloudfront_domain_names`).
+3. `cd snow-resorts-infra && make sync-app-site`
+
+Não serve a política pelo auth-service / ALB da API — HTML estático não pertence ao backend Java.
+
+Conteúdo: `static/app-site/privacy/index.html` (GPS, amigos/grupo, avatar, LGPD, `suporte@snow-resorts.com`).
+
+### D — Material da loja (pode preparar agora)
+
+**Feito no repo** (`snow-resorts-mobile/support/app-store/`):
+
+| Arquivo | Conteúdo |
+|---------|----------|
+| `LISTING.md` | Nome, subtítulo, descrição PT, keywords |
+| `REVIEW_NOTES.md` | Notas para o revisor (EN + PT) |
+| `APP_PRIVACY.md` | Rascunho do questionário App Privacy |
+| `SCREENSHOTS.md` | Guia de capturas 6.7" / 6.5" |
+
+**Conta demo:** rode `./scripts/seed-app-store-review-account.sh` — cria `review@snow-resorts.com` na API prod e grava senha em `.app-store-review.env` (gitignored). Cole usuário/senha no App Store Connect → App Review Information.
+
+**Screenshots:** siga `SCREENSHOTS.md` no simulador (Cmd+S) — imagens não ficam no repo.
+
+### E — Depois da Apple aprovar o Developer Program
+
+1. [App Store Connect](https://appstoreconnect.apple.com) → **My Apps → +** → name **Snow Resorts**, bundle `com.snowresorts.app`.
+2. Anote **Apple ID** (email), **Team ID**, **App Store Connect App ID** (número).
+3. Credenciais de assinatura:
+   ```bash
+   cd snow-resorts-mobile
+   npx eas-cli credentials -p ios
+   ```
+   Deixe o EAS criar certificado + provisioning (recomendado).
+4. Build produção:
+   ```bash
+   npx eas-cli build --profile production --platform ios
+   ```
+5. Submit / TestFlight:
+   ```bash
+   npx eas-cli submit --profile production --platform ios
+   ```
+   Ou: GitHub → Actions → **mobile CI** → Run workflow → profile `production`.
+6. Preencha metadados + privacy URL + App Privacy questionnaire → envie para review.
+
+### Preview vs production (lembrete)
+
+```bash
+# iPhone na mesma Wi-Fi do Mac, backend Docker local
+npx eas-cli build --profile preview --platform ios
+
+# Aponta para api.snow-resorts.com (loja / TestFlight)
+npx eas-cli build --profile production --platform ios
+```
