@@ -855,18 +855,20 @@ Requer conta gratuita. Funciona em resorts cadastrados na plataforma.
 
 #### Revisão de apps
 
-**Conta demo** (API prod — rode antes):
+**Conta demo** (credenciais **fixas** — iguais ao App Store Connect):
 
 ```bash
 cd snow-resorts-mobile
 ./scripts/seed-app-store-review-account.sh
 ```
 
+Valores canônicos em [`snow-resorts-mobile/.app-store-review.env.example`](snow-resorts-mobile/.app-store-review.env.example) (versionado). O script **não gera senha nova**; só cria/verifica o usuário na API prod.
+
 | Campo | Valor |
 |-------|-------|
 | Sign-in required | Yes |
-| Username | `review@snow-resorts.com` |
-| Password | `.app-store-review.env` (gitignored) |
+| Username (App Store Connect) | `review@snow-resorts.com` (e-mail — **não** use `appreview`) |
+| Password | ver `.app-store-review.env.example` |
 
 **Notas para o revisor (EN):**
 
@@ -903,7 +905,7 @@ Telas sugeridas (3–6): Mapa → Descidas → Amigos → Perfil → Resorts. Si
 
 **Universal Links:** publique `apple-app-site-association` e `assetlinks.json` em `https://app.snow-resorts.com/.well-known/` (via bucket `app-site`; substitua `TEAMID` pelo Apple Team ID).
 
-**Conta demo:** credenciais em `.app-store-review.env` após o script acima.
+**Conta demo:** credenciais fixas em `.app-store-review.env.example`; o script só garante que o usuário existe na API prod.
 
 ### E — Depois da Apple aprovar o Developer Program
 
