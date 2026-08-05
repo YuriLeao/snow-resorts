@@ -379,9 +379,14 @@ Swagger na AWS: documentado no Terraform, **não provisionado** ainda (comentado
 | Swagger na AWS | Terraform comentado |
 | `GET /location/groups` (listar meus grupos) | Mobile guarda grupos localmente |
 
-### Decisões registradas
+### Decisões de fundação (backend)
 
-Ver [ADR 0001 — Backend foundation](docs/adr/0001-backend-foundation.md) para decisões de fundação (Java 25, Spring Boot 4.1, sem Lombok, schema-per-service, JWT RS256, hexagonal ports & adapters).
+- **Spring Boot 4.1.0** + **Java 25** em todos os serviços e `snow-resorts-shared`.
+- **Sem Lombok** — construtores explícitos, `record`s, loggers SLF4J manuais.
+- **Polyrepo Maven** — libs publicadas no GitHub Packages; localmente `./mvnw install` em `shared`.
+- **1 Postgres, schema por serviço** (`auth`, `users`, `resorts`, `location`, `activity`); sem JOIN cross-schema.
+- **JWT RS256 + JWKS** — auth emite; demais serviços validam via OAuth2 resource server.
+- **Hexagonal** — `adapters` / `application` / `domain` / `infrastructure` / `utils` em cada serviço.
 
 ---
 
